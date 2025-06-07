@@ -4,6 +4,8 @@ using projectweb.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<ProductRepository>();
+builder.Services.AddScoped<TafelRepository>();
+
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -11,7 +13,6 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<DbConnectionProvider>();
 
 var app = builder.Build();
-
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
