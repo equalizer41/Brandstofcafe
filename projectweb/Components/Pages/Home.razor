@@ -1,0 +1,25 @@
+﻿@page "/"
+@inject ProductRepository ProductRepo
+@using projectweb.Repositories
+
+<h1>Welkom bij het BrandstofCafé</h1>
+
+<p>Selecteer een tafel om een bestelling op te nemen:</p>
+
+<h3>Productlijst</h3>
+
+<ul>
+    @foreach (var product in producten)
+    {
+        <li>@product.Naam - €@product.Prijs</li>
+    }
+</ul>
+
+@code {
+    private List<Product> producten = new();
+
+    protected override void OnInitialized()
+    {
+        producten = ProductRepo.GetAll();
+    }
+}

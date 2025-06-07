@@ -1,0 +1,25 @@
+﻿# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+bin/
+obj/
+out/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Rider / JetBrains
+.idea/
+*.iml
+
+# Other
+*.log
+*.db
+*.sqlite
