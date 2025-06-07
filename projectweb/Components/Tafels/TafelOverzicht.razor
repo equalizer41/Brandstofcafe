@@ -1,0 +1,54 @@
+﻿@using projectweb.Components.Bestellen
+@using projectweb.Repositories
+@using Microsoft.AspNetCore.Components
+
+<h3>Selecteer een tafel</h3>
+
+@if (Tafels is null || !Tafels.Any())
+{
+    <p>Laden...</p>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+        @foreach (var tafel in Tafels)
+        {
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Tafel @tafel.Naam (ID: @tafel.Id)</h5>
+                        <p class="card-text">Sectie: @tafel.Sectie.Naam</p>
+
+                        <button class="btn btn-primary"
+                                @onclick="() => OnToggleTafel.InvokeAsync(tafel.Id)">
+                            @(OpenTafelIds.Contains(tafel.Id) ? "Sluit overzicht" : "Toon overzicht")
+                        </button>
+
+                        @if (OpenTafelIds.Contains(tafel.Id))
+                        {
+                            <div class="mt-3">
+                                <BestellingOverzicht TafelId="@tafel.Id" @key="tafel.Id" />
+                                <button class="btn btn-success mt-2"
+                                        @onclick="() => StartNieuweBestelling.InvokeAsync(tafel.Id)">
+                                    ➕ Start bestelling
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<Tafel> Tafels { get; set; } = new();
+    [Parameter] public HashSet<int> OpenTafelIds { get; set; } = new();
+    [Parameter] public EventCallback<int> OnToggleTafel { get; set; }
+    [Parameter] public EventCallback<int> StartNieuweBestelling { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Console.WriteLine("TafelOverzicht component geladen!");
+    }
+}

@@ -1,0 +1,50 @@
+﻿@using projectweb.Components.Bestellen
+@using projectweb.Repositories
+@inject BestellingRepository BestellingRepo
+
+
+<h3>Start een nieuwe bestelronde</h3>
+
+<div class="mb-3">
+    <label for="tafelId" class="form-label">Tafel ID</label>
+    <input id="tafelId" class="form-control" @bind="TafelId" type="number" />
+</div>
+
+<button class="btn btn-success" @onclick="StartRonde">Start ronde</button>
+
+@if (!string.IsNullOrEmpty(Foutmelding))
+{
+    <div class="alert alert-danger mt-2">@Foutmelding</div>
+}
+
+@code {
+    private int TafelId;
+    private string Foutmelding = "";
+
+    private async Task StartRonde()
+    {
+        if (TafelId <= 0)
+        {
+            Foutmelding = "Geef een geldig tafelnummer op.";
+            return;
+        }
+
+        try
+        {
+            var nieuweBestelling = new Bestelling
+            {
+                TafelId = TafelId,
+                Tijdstip = DateTime.Now,
+                Rondes = new List<Ronde>()
+            };
+
+            await BestellingRepo.CreateAsync(nieuweBestelling);
+            Foutmelding = "";
+
+        }
+        catch (Exception ex)
+        {
+            Foutmelding = $"Fout bij aanmaken: {ex.Message}";
+        }
+    }
+}

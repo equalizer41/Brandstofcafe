@@ -1,56 +1,44 @@
 ﻿@page "/"
-@inject ProductRepository ProductRepo
 @inject TafelRepository TafelRepo
+@inject BestellingRepository BestellingRepo
+
+@using projectweb.Components.Tafels
 @using projectweb.Repositories
+@rendermode InteractiveServer
 
-<h1>Neem een nieuwe bestelling op!</h1>
+<h2>Homepagina</h2>
 
-<p>Selecteer een tafel om een bestelling op te nemen:</p>
-
-<div class="container my-4">
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <label for="tafelSelectie" class="form-label">Kies een tafel:</label>
-            <select class="form-select" id="tafelSelectie" @bind="selectedTafel">
-                <option disabled selected value="">-- Selecteer een tafel --</option>
-                @foreach (var tafel in tafels)
-                {
-                    <option value="@tafel.Id">@tafel.Naam</option>
-                }
-            </select>
-        </div>
-
-        <div class="col-12 text-end">
-            <button class="btn btn-primary" @onclick="StartBestelling" disabled="@(!KanStarten)">
-                Start bestelling
-            </button>
-        </div>
-    </div>
-</div>
-
-<h3>Productlijst</h3>
-<ul>
-    @foreach (var product in producten)
-    {
-        <li>@product.Naam - €@product.Prijs</li>
-    }
-</ul>
+<TafelOverzicht Tafels="@Tafels"
+                OpenTafelIds="@OpenTafelIds"
+                OnToggleTafel="ToggleTafel"
+                StartNieuweBestelling="StartNieuweBestelling" />
 
 @code {
-    private List<Product> producten = new();
-    private List<Tafel> tafels = new();
-    private int? selectedTafel;
+    private List<Tafel> Tafels = new();
+    private HashSet<int> OpenTafelIds = new();
 
     protected override void OnInitialized()
     {
-        producten = ProductRepo.GetAll();
-        tafels = TafelRepo.GetAll();
+        Tafels = TafelRepo.GetAll();
     }
 
-    private bool KanStarten => selectedTafel.HasValue;
-
-    private void StartBestelling()
+    private void ToggleTafel(int tafelId)
     {
-        Console.WriteLine($"Bestelling gestart voor tafel ID: {selectedTafel}");
+        if (!OpenTafelIds.Add(tafelId))
+            OpenTafelIds.Remove(tafelId);
+
+        StateHasChanged();
+    }
+
+    private async Task StartNieuweBestelling(int tafelId)
+    {
+        var bestelling = new Bestelling
+        {
+            TafelId = tafelId,
+            Tijdstip = DateTime.Now
+        };
+
+        await BestellingRepo.CreateAsync(bestelling);
+        StateHasChanged();
     }
 }

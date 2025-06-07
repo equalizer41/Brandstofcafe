@@ -5,6 +5,8 @@ using projectweb.Repositories;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<ProductRepository>();
 builder.Services.AddScoped<TafelRepository>();
+builder.Services.AddScoped<BestellingRepository>();
+
 
 
 // Add services to the container.

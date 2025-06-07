@@ -1,0 +1,32 @@
+﻿@inject BestellingRepository BestellingRepo
+@using projectweb.Repositories
+@using Microsoft.AspNetCore.Components
+
+<h4>Bestellingen voor tafel @TafelId</h4>
+
+@if (Bestellingen.Any())
+{
+    <ul class="list-group">
+        @foreach (var b in Bestellingen)
+        {
+            <li class="list-group-item">
+                Bestelling @b.Id – @b.Rondes.Count rondes – @(b.IsBetaald ? "✔ Betaald" : "✖ Niet betaald")
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p>Geen bestellingen gevonden.</p>
+}
+
+@code {
+    [Parameter] public int TafelId { get; set; }
+
+    private List<Bestelling> Bestellingen = new();
+
+    protected override void OnParametersSet()
+    {
+        Bestellingen = BestellingRepo.GetByTafelId(TafelId);
+    }
+}
