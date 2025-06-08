@@ -1,4 +1,5 @@
 ﻿@inject BestellingRepository BestellingRepo
+@inject RondeRepository RondeRepo
 @using projectweb.Repositories
 @using Microsoft.AspNetCore.Components
 
@@ -12,7 +13,15 @@
             <li class="list-group-item">
                 Bestelling @b.Id – @b.Rondes.Count rondes – @(b.IsBetaald ? "✔ Betaald" : "✖ Niet betaald")
             </li>
+            @foreach (var r in b.Rondes)
+            {
+                <li class="list-group-item ms-4">
+                    Ronde @r.Id – Status: @r.Status
+                </li>
+            }
         }
+
+
     </ul>
 }
 else
@@ -22,11 +31,15 @@ else
 
 @code {
     [Parameter] public int TafelId { get; set; }
+    [Parameter] public int BestellingId { get; set; }
+
 
     private List<Bestelling> Bestellingen = new();
+    private List<Ronde> Rondes = new();
 
     protected override void OnParametersSet()
     {
         Bestellingen = BestellingRepo.GetByTafelId(TafelId);
+        Rondes = RondeRepo.GetAll();
     }
 }

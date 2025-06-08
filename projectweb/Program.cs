@@ -6,6 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<ProductRepository>();
 builder.Services.AddScoped<TafelRepository>();
 builder.Services.AddScoped<BestellingRepository>();
+builder.Services.AddScoped<RondeRepository>();
+
 
 
 
