@@ -1,0 +1,28 @@
+﻿
+
+
+<div class="d-flex gap-2 mt-3">
+    <button class="btn btn-outline-primary"
+            @onclick="async () => await OnNieuweRonde.InvokeAsync(null)">
+        ➕ Nieuwe ronde
+    </button>
+
+    <button class="btn btn-outline-secondary"
+            @onclick="async () => await OnHerhaalRonde.InvokeAsync(null)">
+        🔁 Herhaal laatste ronde
+    </button>
+
+    <button class="btn btn-success"
+            @onclick="async () => await OnBetaalAlles.InvokeAsync(null)">
+        💳 Betaal alles
+    </button>
+
+</div>
+
+@code {
+    [Parameter] public int BestellingId { get; set; }
+    [Parameter] public EventCallback OnNieuweRonde { get; set; }
+    [Parameter] public EventCallback OnHerhaalRonde { get; set; }
+    [Parameter] public EventCallback OnBetaalAlles { get; set; }
+}
+

@@ -1,0 +1,44 @@
+﻿@using projectweb.Repositories
+@inject SectieRepository SectieRepo
+
+<h3>Kies een Sectie van het restaurant</h3>
+
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+@foreach(var s in Sectie)
+{
+     <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@s.Naam </h5>
+                <button class="btn btn-primary" @onclick="() => SelecteerSectie(s.Id)">
+                    @(SectieId == s.Id ? "Sluit overzicht" : "Toon overzicht")
+                </button>
+
+               
+
+                    </div>
+                </div>
+    </div>
+}
+</div>
+
+@code {
+    [Parameter] public int SectieId { get; set; }
+    [Parameter] public EventCallback<int> OnSectieSelected { get; set; }
+
+    private List<Sectie> Sectie = new();
+
+    protected override void OnParametersSet()
+    {
+
+        Sectie = SectieRepo.GetAll();
+    }
+    private async Task SelecteerSectie(int id)
+    {
+        SectieId = id;
+        await OnSectieSelected.InvokeAsync(id);
+
+
+    }
+}
+

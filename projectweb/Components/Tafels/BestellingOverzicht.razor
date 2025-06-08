@@ -1,29 +1,62 @@
 ﻿@inject BestellingRepository BestellingRepo
 @inject RondeRepository RondeRepo
 @using projectweb.Repositories
-@using Microsoft.AspNetCore.Components
-
-<h4>Bestellingen voor tafel @TafelId</h4>
+@using projectweb.Components.Bestellen
 
 @if (Bestellingen.Any())
 {
-    <ul class="list-group">
-        @foreach (var b in Bestellingen)
+    <div class="accordion" id="bestellingenAccordion">
+        @for (int i = 0; i < Bestellingen.Count; i++)
         {
-            <li class="list-group-item">
-                Bestelling @b.Id – @b.Rondes.Count rondes – @(b.IsBetaald ? "✔ Betaald" : "✖ Niet betaald")
-            </li>
-            @foreach (var r in b.Rondes)
-            {
-                <li class="list-group-item ms-4">
-                    Ronde @r.Id – Status: @r.Status
-                </li>
-            }
+            var b = Bestellingen[i];
+            var collapseId = $"collapse{i}";
+            var headingId = $"heading{i}";
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="@headingId">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
+                        Bestelling @b.Id – @b.Rondes.Count rondes – @(b.IsBetaald ? "✔ Betaald" : "✖ Niet betaald")
+                    </button>
+                </h2>
+                <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#bestellingenAccordion">
+                    <div class="accordion-body">
+                        @foreach (var r in b.Rondes)
+                        {
+                            <div class="mb-2">
+                                Ronde @r.Id – Status: @r.Status
+                            </div>
+                            <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#bestellingenAccordion">
+                                <div class="accordion-body">
+                                    @foreach (var or in r.OrderRegels)
+                                    {
+                                        <div class="mb-2">                                                                          
+                                            Productnaam: @or.ProductId
+                                            <br />
+                                            Aantal besteld: @or.Aantal
+                                            <br />
+                                            Aantal betaald: @or.AantalBetaald
+                                        </div>
+
+
+                                    }
+                                       <BestelActies BestellingId="@BestellingId"
+                                          OnNieuweRonde="NieuweRonde"
+                                          OnHerhaalRonde="HerhaalLaatsteRonde"
+                                          OnBetaalAlles="BetaalAlles" />
+                                </div>
+
+
+                            </div>
+                        }
+                    </div>
+                    
+                 
+                </div>
+                
+            </div>
         }
-
-
-    </ul>
+    </div>
 }
+
 else
 {
     <p>Geen bestellingen gevonden.</p>
@@ -42,4 +75,20 @@ else
         Bestellingen = BestellingRepo.GetByTafelId(TafelId);
         Rondes = RondeRepo.GetAll();
     }
+
+    private async Task NieuweRonde()
+    {
+        // Logica voor nieuwe ronde starten
+    }
+
+    private async Task HerhaalLaatsteRonde()
+    {
+        // Kopieer laatste ronde naar nieuwe
+    }
+
+    private async Task BetaalAlles()
+    {
+        // Zet status van alle producten op betaald
+    }
+
 }

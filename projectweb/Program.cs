@@ -1,13 +1,26 @@
 using projectweb;
 using projectweb.Components;
 using projectweb.Repositories;
+using Blazorise;
+using Blazorise.Bootstrap5;
+using Blazorise.Icons.FontAwesome;
+
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<ProductRepository>();
 builder.Services.AddScoped<TafelRepository>();
 builder.Services.AddScoped<BestellingRepository>();
 builder.Services.AddScoped<RondeRepository>();
+builder.Services.AddScoped<OrderRegelRepository>();
+builder.Services.AddScoped<SectieRepository>();
 
+builder.Services
+    .AddBlazorise(options =>
+    {
+        options.Immediate = true;
+    })
+    .AddBootstrap5Providers()
+    .AddFontAwesomeIcons();
 
 
 

@@ -41,7 +41,6 @@ namespace projectweb.Repositories
         }
 
 
-
         public async Task<List<TafelOverzicht>> GetTafelOverzichtAsync()
         {
             using var conn = dbConnectionProvider.GetDatabaseConnection();

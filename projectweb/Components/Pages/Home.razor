@@ -1,36 +1,103 @@
 ﻿@page "/"
 @inject TafelRepository TafelRepo
 @inject BestellingRepository BestellingRepo
+@inject IJSRuntime JS
 
 @using projectweb.Components.Tafels
 @using projectweb.Repositories
 @rendermode InteractiveServer
 
-<h2>Homepagina</h2>
+<h2>Bestelpagina voor Obers</h2>
 
-<TafelOverzicht Tafels="@Tafels"
-                OpenTafelIds="@OpenTafelIds"
-                OnToggleTafel="ToggleTafel"
-                StartNieuweBestelling="StartNieuweBestelling" />
+<TafelSectieSelector SectieId="@GeselecteerdeSectieId"
+                     OnSectieSelected="HandleSectieSelected" />
+
+<br />
+@if (GeselecteerdeSectieId != 0)
+{
+    <TafelOverzicht Tafels="@Tafels"
+                    GeselecteerdeTafelId="@GeselecteerdeTafelId"
+                    OnToggleTafel="ToggleTafel"
+                    StartNieuweBestelling="StartNieuweBestelling" />
+
+}
+
+@if (GeselecteerdeTafelId is not null && GeselecteerdeSectieId != 0)
+{
+    <hr />
+    <h3>Bestelling voor tafel @GeselecteerdeTafelId</h3>
+
+    <BestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
+    <button class="btn btn-success mt-2"
+            @onclick="() => StartNieuweBestelling(GeselecteerdeTafelId.Value)">
+        ➕ Start bestelling
+    </button>
+}
+
+
+
+<div class="modal fade" tabindex="-1" id="bevestigingModal" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nieuwe bestelling starten?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+            </div>
+            <div class="modal-body">
+                <p>Er zijn nog onbetaalde bestellingen voor deze tafel. Weet je zeker dat je een nieuwe wilt starten?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="AnnuleerNieuweBestelling" data-bs-dismiss="modal">Annuleren</button>
+                <button class="btn btn-primary" @onclick="BevestigNieuweBestelling" data-bs-dismiss="modal">Ja, start</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @code {
     private List<Tafel> Tafels = new();
-    private HashSet<int> OpenTafelIds = new();
+    private int? GeselecteerdeTafelId = null;
+
+
+    private int GeselecteerdeTafelIdVoorNieuweBestelling;
+    private int GeselecteerdeSectieId;
 
     protected override void OnInitialized()
     {
-        Tafels = TafelRepo.GetAll();
+        Tafels = new();
     }
 
     private void ToggleTafel(int tafelId)
     {
-        if (!OpenTafelIds.Add(tafelId))
-            OpenTafelIds.Remove(tafelId);
+        if (GeselecteerdeTafelId == tafelId)
+        {
+            GeselecteerdeTafelId = null; // Sluit huidige
+        }
+        else
+        {
+            GeselecteerdeTafelId = tafelId; // Open nieuwe
+        }
 
         StateHasChanged();
     }
 
+
     private async Task StartNieuweBestelling(int tafelId)
+    {
+        var bestellingen = BestellingRepo.GetOnbetaaldeBestellingenVoorTafel(tafelId);
+        bool heeftOnbetaalde = bestellingen.Any();
+
+        if (heeftOnbetaalde)
+        {
+            GeselecteerdeTafelIdVoorNieuweBestelling = tafelId;
+            await JS.InvokeVoidAsync("bootstrapModalHelper.show", "#bevestigingModal");
+            return;
+        }
+
+        await MaakNieuweBestelling(tafelId);
+    }
+
+    private async Task MaakNieuweBestelling(int tafelId)
     {
         var bestelling = new Bestelling
         {
@@ -41,4 +108,34 @@
         await BestellingRepo.CreateAsync(bestelling);
         StateHasChanged();
     }
+
+    private async Task BevestigNieuweBestelling()
+    {
+        await MaakNieuweBestelling(GeselecteerdeTafelIdVoorNieuweBestelling);
+    }
+
+    private void AnnuleerNieuweBestelling()
+    {
+        GeselecteerdeTafelIdVoorNieuweBestelling = 0;
+    }
+
+    private void HandleSectieSelected(int sectieId)
+    {
+        if (GeselecteerdeSectieId == sectieId)
+        {
+            GeselecteerdeSectieId = 0;
+            Tafels = new();
+        }
+        else
+        {
+            GeselecteerdeSectieId = sectieId;
+            Tafels = TafelRepo.GetAll()
+                              .Where(t => t.SectieId == sectieId)
+                              .ToList();
+        }
+
+        StateHasChanged();
+    }
+
+
 }
