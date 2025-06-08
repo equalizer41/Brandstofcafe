@@ -1,5 +1,43 @@
-﻿<h3>ProductSelector</h3>
+﻿@page "/productselectie"
+@inject NavigationManager NavigationManager
+@inject ProductRepository ProductRepo
+@using projectweb.Repositories
+
+Tafel met ID @TafelId en RondeID @RondeId
+
+<h3>Producten</h3>
+<ul class="list-group mb-3">
+    @foreach (var product in Producten)
+    {
+        <li class="list-group-item d-flex justify-content-between align-items-center" @key="product.Id">
+            <div>
+                <strong>@product.Naam</strong> - €@product.Prijs
+            </div>
+            <button class="btn btn-sm btn-success" @onclick="@(() => VoegToeAanRonde(product.Id))">
+                Voeg toe
+            </button>
+        </li>
+    }
+</ul>
+
 
 @code {
+    [Parameter, SupplyParameterFromQuery]
+    public int TafelId { get; set; }
+    [Parameter, SupplyParameterFromQuery]
+    public int RondeId { get; set; }
+    private List<Product> Producten = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Producten = ProductRepo.GetAll();
+
+    }
+
+    public void VoegToeAanRonde(int product)
+    {
+        /// code
+    }
 
 }

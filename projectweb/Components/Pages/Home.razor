@@ -9,6 +9,8 @@
 
 <h2>Bestelpagina voor Obers</h2>
 
+
+
 <TafelSectieSelector SectieId="@GeselecteerdeSectieId"
                      OnSectieSelected="HandleSectieSelected" />
 
@@ -30,7 +32,7 @@
     <BestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
     <button class="btn btn-success mt-2"
             @onclick="() => StartNieuweBestelling(GeselecteerdeTafelId.Value)">
-        ➕ Start bestelling
+        ➕ Start nieuwe bestelling
     </button>
 }
 

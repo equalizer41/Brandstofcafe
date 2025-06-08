@@ -18,11 +18,7 @@ namespace projectweb.Repositories
             using var connection = dbConnectionProvider.GetDatabaseConnection();
             return connection.Query<Bestelling>("SELECT * FROM Bestelling").ToList();
         }
-        public List<Bestelling> GetNonPayed()
-        {
-            using var connection = dbConnectionProvider.GetDatabaseConnection();
-            return connection.Query<Bestelling>("SELECT * FROM Bestelling WHERE IsBetaald = 0").ToList();
-        }
+
         public async Task<int> CreateAsync(Bestelling bestelling)
         {
             using var connection = dbConnectionProvider.GetDatabaseConnection();
@@ -83,10 +79,6 @@ namespace projectweb.Repositories
                 throw;
             }
         }
-
-
-
-
 
         public List<Bestelling> GetByTafelId(int tafelId)
         {

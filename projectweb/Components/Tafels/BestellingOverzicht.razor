@@ -1,7 +1,10 @@
 ﻿@inject BestellingRepository BestellingRepo
 @inject RondeRepository RondeRepo
+@inject ProductRepository ProductRepo
 @using projectweb.Repositories
 @using projectweb.Components.Bestellen
+@inject NavigationManager Nav
+
 
 @if (Bestellingen.Any())
 {
@@ -13,40 +16,74 @@
             var headingId = $"heading{i}";
             <div class="accordion-item">
                 <h2 class="accordion-header" id="@headingId">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
-                        Bestelling @b.Id – @b.Rondes.Count rondes – @(b.IsBetaald ? "✔ Betaald" : "✖ Niet betaald")
+                   <button class="accordion-button collapsed d-flex justify-content-between align-items-center px-3 py-2" 
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#@collapseId"
+                            aria-expanded="false"
+                            aria-controls="@collapseId">
+
+                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
+                            <span><strong>Bestelling @b.Id</strong></span>
+                            <span class="badge bg-secondary">@b.Rondes.Count ronde@(b.Rondes.Count == 1 ? "" : "s")</span>
+
+                            @if (b.IsBetaald)
+                            {
+                                <span class="badge bg-success">✔ Betaald</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">✖ Niet betaald</span>
+                            }
+                        </div>
+
+                        <span class="ms-auto"><i class="bi bi-chevron-down"></i></span>
                     </button>
+
                 </h2>
                 <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#bestellingenAccordion">
                     <div class="accordion-body">
                         @foreach (var r in b.Rondes)
-                        {
-                            <div class="mb-2">
-                                Ronde @r.Id – Status: @r.Status
+{
+                        <div class="d-flex align-items-center justify-content-between bg-light border rounded px-3 py-2 mb-2">
+                            <div>
+                                <strong> Ronde @r.Id</strong>
                             </div>
-                            <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#bestellingenAccordion">
-                                <div class="accordion-body">
-                                    @foreach (var or in r.OrderRegels)
-                                    {
-                                        <div class="mb-2">                                                                          
-                                            Productnaam: @or.ProductId
-                                            <br />
-                                            Aantal besteld: @or.Aantal
-                                            <br />
-                                            Aantal betaald: @or.AantalBetaald
-                                        </div>
+                        </div>
 
+                        <div class="accordion-collapse collapse show" aria-labelledby="@headingId" data-bs-parent="#bestellingenAccordion">
 
-                                    }
-                                       <BestelActies BestellingId="@BestellingId"
-                                          OnNieuweRonde="NieuweRonde"
-                                          OnHerhaalRonde="HerhaalLaatsteRonde"
-                                          OnBetaalAlles="BetaalAlles" />
-                                </div>
+                                <table class="table table-striped table-sm">
+                                     <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 50%;">Product</th>
+                                            <th style="width: 25%;">Aantal besteld</th>
+                                            <th style="width: 25%;">Aantal betaald</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var or in r.OrderRegels)
+                                        {
+                                            var product = ProductenLookup.ContainsKey(or.ProductId)
+                                                ? ProductenLookup[or.ProductId]
+                                                : null;
 
+                                            <tr>
+                                                <td>@(product?.Naam ?? "(onbekend)")</td>
+                                                <td>@or.Aantal</td>
+                                                <td>@or.AantalBetaald</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
 
-                            </div>
-                        }
+                                <BestelActies BestellingId="@BestellingId"
+                                              OnNieuweRonde="NieuweRonde"
+                                              OnHerhaalRonde="HerhaalLaatsteRonde"
+                                              OnBetaalAlles="BetaalAlles" />
+                        </div>
+                    }
+
                     </div>
                     
                  
@@ -65,8 +102,7 @@ else
 @code {
     [Parameter] public int TafelId { get; set; }
     [Parameter] public int BestellingId { get; set; }
-
-
+    private Dictionary<int, Product> ProductenLookup = new();
     private List<Bestelling> Bestellingen = new();
     private List<Ronde> Rondes = new();
 
@@ -74,11 +110,15 @@ else
     {
         Bestellingen = BestellingRepo.GetByTafelId(TafelId);
         Rondes = RondeRepo.GetAll();
+
+        var producten = ProductRepo.GetAll();
+        ProductenLookup = producten.ToDictionary(p => p.Id);
+
     }
 
     private async Task NieuweRonde()
     {
-        // Logica voor nieuwe ronde starten
+        Nav.NavigateTo($"/productselectie?tafelId={TafelId}&rondeId=1");
     }
 
     private async Task HerhaalLaatsteRonde()
