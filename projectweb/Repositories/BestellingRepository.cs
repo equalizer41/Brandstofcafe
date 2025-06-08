@@ -18,6 +18,12 @@ namespace projectweb.Repositories
             using var connection = dbConnectionProvider.GetDatabaseConnection();
             return connection.Query<Bestelling>("SELECT * FROM Bestelling").ToList();
         }
+        public Bestelling? GetById(int id)
+        {
+            using var connection = dbConnectionProvider.GetDatabaseConnection();
+            return connection.QueryFirstOrDefault<Bestelling>(
+                "SELECT * FROM Bestelling WHERE Id = @Id", new { Id = id });
+        }
 
         public async Task<int> CreateAsync(Bestelling bestelling)
         {

@@ -13,6 +13,7 @@ builder.Services.AddScoped<BestellingRepository>();
 builder.Services.AddScoped<RondeRepository>();
 builder.Services.AddScoped<OrderRegelRepository>();
 builder.Services.AddScoped<SectieRepository>();
+builder.Services.AddScoped<CategorieRepository>(); 
 
 builder.Services
     .AddBlazorise(options =>

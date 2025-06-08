@@ -9,35 +9,59 @@
 
 <h2>Bestelpagina voor Obers</h2>
 
+<!-- Sectieoverzicht -->
 
+<div class="card mb-3">
+    <div class="card-header d-flex align-items-center">
+        <span class="fw-semibold">Kies een Sectie van het restaurant</span>
+        <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="collapse" data-bs-target="#sectieCollapse">
+            Sectie wisselen
+        </button>
+    </div>
 
-<TafelSectieSelector SectieId="@GeselecteerdeSectieId"
-                     OnSectieSelected="HandleSectieSelected" />
+    <div id="sectieCollapse" class="collapse show card-body">
+        <TafelSectieSelector SectieId="@GeselecteerdeSectieId"
+                             OnSectieSelected="HandleSectieSelected" />
+    </div>
+</div>
 
-<br />
+<!-- Tafeloverzicht -->
 @if (GeselecteerdeSectieId != 0)
 {
-    <TafelOverzicht Tafels="@Tafels"
-                    GeselecteerdeTafelId="@GeselecteerdeTafelId"
-                    OnToggleTafel="ToggleTafel"
-                    StartNieuweBestelling="StartNieuweBestelling" />
+    <div class="card mb-3">
+        <div class="card-header d-flex align-items-center">
+            <span class="fw-semibold">Selecteer een tafel</span>
+            <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="collapse" data-bs-target="#tafelCollapse">
+                Tafels tonen/verbergen
+            </button>
+        </div>
 
+        <div id="tafelCollapse" class="collapse show card-body">
+            <TafelOverzicht Tafels="@Tafels"
+                            GeselecteerdeTafelId="@GeselecteerdeTafelId"
+                            OnToggleTafel="ToggleTafel"
+                            StartNieuweBestelling="StartNieuweBestelling" />
+        </div>
+    </div>
 }
 
 @if (GeselecteerdeTafelId is not null && GeselecteerdeSectieId != 0)
 {
-    <hr />
-    <h3>Bestelling voor tafel @GeselecteerdeTafelId</h3>
-
-    <BestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
-    <button class="btn btn-success mt-2"
-            @onclick="() => StartNieuweBestelling(GeselecteerdeTafelId.Value)">
-        ➕ Start nieuwe bestelling
-    </button>
+    <div class="card mb-3">
+        <div class="card-header d-flex align-items-center gap-3">
+            <h5 class="mb-0">Bestelling voor tafel @GeselecteerdeTafelId</h5>
+            <button class="btn btn-success btn-sm"
+                    @onclick="() => StartNieuweBestelling(GeselecteerdeTafelId.Value)">
+                ➕ Start nieuwe bestelling
+            </button>
+        </div>
+        <div class="card-body">
+            <BestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
+        </div>
+    </div>
 }
 
-
-
+<!-- Modal -->
 <div class="modal fade" tabindex="-1" id="bevestigingModal" role="dialog">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -121,7 +145,7 @@
         GeselecteerdeTafelIdVoorNieuweBestelling = 0;
     }
 
-    private void HandleSectieSelected(int sectieId)
+    private async Task HandleSectieSelected(int sectieId)
     {
         if (GeselecteerdeSectieId == sectieId)
         {
@@ -135,7 +159,6 @@
                               .Where(t => t.SectieId == sectieId)
                               .ToList();
         }
-
         StateHasChanged();
     }
 
