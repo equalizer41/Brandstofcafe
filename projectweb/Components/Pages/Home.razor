@@ -3,7 +3,7 @@
 @inject BestellingRepository BestellingRepo
 @inject IJSRuntime JS
 
-@using projectweb.Components.Tafels
+@using projectweb.Components.Flow
 @using projectweb.Repositories
 @rendermode InteractiveServer
 
@@ -20,7 +20,7 @@
     </div>
 
     <div id="sectieCollapse" class="collapse show card-body">
-        <TafelSectieSelector SectieId="@GeselecteerdeSectieId"
+        <TafelSectieLijst SectieId="@GeselecteerdeSectieId"
                              OnSectieSelected="HandleSectieSelected" />
     </div>
 </div>
@@ -37,10 +37,11 @@
         </div>
 
         <div id="tafelCollapse" class="collapse show card-body">
-            <TafelOverzicht Tafels="@Tafels"
+            <TafelLijst Tafels="@Tafels"
                             GeselecteerdeTafelId="@GeselecteerdeTafelId"
-                            OnToggleTafel="ToggleTafel"
+                            OnToggleTafel="ToggleTafel"                        
                             StartNieuweBestelling="StartNieuweBestelling" />
+
         </div>
     </div>
 }
@@ -56,29 +57,11 @@
             </button>
         </div>
         <div class="card-body">
-            <BestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
+            <TafelBestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
         </div>
     </div>
 }
 
-<!-- Modal -->
-<div class="modal fade" tabindex="-1" id="bevestigingModal" role="dialog">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nieuwe bestelling starten?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
-            </div>
-            <div class="modal-body">
-                <p>Er zijn nog onbetaalde bestellingen voor deze tafel. Weet je zeker dat je een nieuwe wilt starten?</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" @onclick="AnnuleerNieuweBestelling" data-bs-dismiss="modal">Annuleren</button>
-                <button class="btn btn-primary" @onclick="BevestigNieuweBestelling" data-bs-dismiss="modal">Ja, start</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 @code {
     private List<Tafel> Tafels = new();
@@ -134,17 +117,6 @@
         await BestellingRepo.CreateAsync(bestelling);
         StateHasChanged();
     }
-
-    private async Task BevestigNieuweBestelling()
-    {
-        await MaakNieuweBestelling(GeselecteerdeTafelIdVoorNieuweBestelling);
-    }
-
-    private void AnnuleerNieuweBestelling()
-    {
-        GeselecteerdeTafelIdVoorNieuweBestelling = 0;
-    }
-
     private async Task HandleSectieSelected(int sectieId)
     {
         if (GeselecteerdeSectieId == sectieId)

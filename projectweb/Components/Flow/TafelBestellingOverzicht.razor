@@ -2,7 +2,9 @@
 @inject RondeRepository RondeRepo
 @inject ProductRepository ProductRepo
 @using projectweb.Repositories
-@using projectweb.Components.Bestellen
+@using projectweb.Components.Flow
+
+
 @inject NavigationManager Nav
 
 @if (Bestellingen.Any())
@@ -95,7 +97,7 @@ else
 
 @if (ToonProductSelector)
 {
-    <ProductSelector RondeId="@NieuwAangemaakteRonde.Id"
+    <ProductLijst RondeId="@NieuwAangemaakteRonde.Id"
                      RondeNr="@NieuwAangemaakteRonde.RondNr" />
 }
 
