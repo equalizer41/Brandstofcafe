@@ -1,7 +1,7 @@
-﻿@using projectweb.Repositories
+﻿@using projectweb.Models
+@using projectweb.Repositories
 @inject ProductRepository ProductRepo
 @inject CategorieRepository CategorieRepo
-
 
 <h3>Product Selector voor ronde @RondeNr</h3>
 
@@ -19,7 +19,7 @@
                     <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerhoogAantal(regel)">+</button>
                     @if (regel.Aantal == 0)
                     {
-                        <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => VerwijderOrderRegel(regel)">🗑</button>
+                        <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => VerwijderOrderRegel(regel)">🔝</button>
                     }
                 </div>
             </li>
@@ -33,23 +33,34 @@ else
 
 <!-- Modal trigger -->
 <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#productModal">Product toevoegen</button>
+<button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#productModal">Ronde Bestellen</button>
 
 <!-- Modal -->
 <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Product toevoegen</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+              
             </div>
             <div class="modal-body">
-                @foreach (var subCategorie in AlleCategorieen.Where(c => c.OuderCategorieId != null))
+                @foreach (var HoofdCategorie in AlleCategorieen.Where(c => c.OuderCategorieId == null))
                 {
-                    <CategorieAccordion Categorie="subCategorie"
-                                        AlleProducten="AlleProducten"
-                                        TijdelijkeAantallen="TijdelijkeAantallen"
-                                        GeselecteerdeAddOns="GeselecteerdeAddOns"
-                                        OnToevoegen="VoegToeAanRonde" />
+                    <div class="mb-4 border p-3 rounded bg-light">
+                        <h5 class="fw-bold">@HoofdCategorie.Naam</h5>
+
+                        @foreach (var SubCategorie in AlleCategorieen.Where(c => c.OuderCategorieId == HoofdCategorie.Id))
+                        {
+                            <CategorieLijst Categorie="SubCategorie"
+                                                AlleProducten="AlleProducten"
+                                                TijdelijkeAantallen="TijdelijkeAantallen"
+                                                GeselecteerdeAddOns="GeselecteerdeAddOns"
+                                                OnToevoegen="VoegToeAanRonde"
+                                                AlleProductAddOnCategorieen="AlleProductAddOnCategorieen"
+                                                AlleProductAddOns="AlleProductAddOns" />
+                        }
+                    </div>
                 }
 
             </div>
@@ -61,7 +72,7 @@ else
 </div>
 
 <div class="mt-4">
-    <a href="#">→ Terug naar boven</a>
+    <a href="#">&rarr; Terug naar boven</a>
 </div>
 
 @code {
@@ -71,6 +82,8 @@ else
     private List<OrderRegel> GekozenOrderRegels = new();
     private List<Product> AlleProducten = new();
     private List<Categorie> AlleCategorieen = new();
+    private List<ProductAddOnCategorie> AlleProductAddOnCategorieen = new();
+    private List<ProductAddOn> AlleProductAddOns = new();
 
     private Dictionary<int, int> TijdelijkeAantallen = new();
     private Dictionary<int, List<int>> GeselecteerdeAddOns = new();
@@ -78,11 +91,13 @@ else
     protected override void OnInitialized()
     {
         AlleProducten = ProductRepo.GetAll();
-        AlleCategorieen = HaalCategorieënOp();
+        AlleCategorieen = CategorieRepo.GetAll();
+        AlleProductAddOnCategorieen = ProductRepo.GetAllProductAddOnCategorieen();
+        AlleProductAddOns = ProductRepo.GetAllProductAddOns();
 
         foreach (var product in AlleProducten)
         {
-            TijdelijkeAantallen[product.Id] = 1;
+            TijdelijkeAantallen[product.Id] = 0;
         }
     }
 
@@ -120,8 +135,4 @@ else
     private void VerhoogAantal(OrderRegel regel) => regel.Aantal++;
     private void VerlaagAantal(OrderRegel regel) { if (regel.Aantal > 0) regel.Aantal--; }
     private void VerwijderOrderRegel(OrderRegel regel) => GekozenOrderRegels.Remove(regel);
-
-
-    private List<Categorie> HaalCategorieënOp() => CategorieRepo.GetAll();
-
 }

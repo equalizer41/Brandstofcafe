@@ -49,34 +49,3 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
-
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.5); /* half-transparante zwarte overlay */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal {
-    background-color: white;
-    padding: 2rem;
-    border-radius: 0.5rem;
-    max-width: 400px;
-    width: 90%;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
-    text-align: center;
-    z-index: 1001;
-}
-
-    .modal button {
-        margin: 0.5rem;
-        padding: 0.5rem 1rem;
-        border: none;
-        cursor: pointer;
-    }

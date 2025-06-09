@@ -45,20 +45,20 @@
                                 <div><strong>Ronde @r.Id</strong></div>
                             </div>
 
-                            <table class="table table-striped table-sm">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50%;">Product</th>
-                                        <th style="width: 25%;">Aantal besteld</th>
-                                        <th style="width: 25%;">Aantal betaald</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                            <Table Striped Small>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHeaderCell style="width: 50%;">Product</TableHeaderCell>
+                                        <TableHeaderCell style="width: 25%;">Aantal besteld</TableHeaderCell>
+                                        <TableHeaderCell style="width: 25%;">Aantal betaald</TableHeaderCell>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
                                     @foreach (var or in r.OrderRegels)
                                     {
                                         var product = ProductenLookup.ContainsKey(or.ProductId) ? ProductenLookup[or.ProductId] : null;
-                                        <tr>
-                                            <td>
+                                        <TableRow>
+                                            <TableRowCell>
                                                 <div>@(product?.Naam ?? "(onbekend)")</div>
                                                 @if (or.AddOns?.Any() == true)
                                                 {
@@ -69,13 +69,14 @@
                                                         }
                                                     </ul>
                                                 }
-                                            </td>
-                                            <td>@or.Aantal</td>
-                                            <td>@or.AantalBetaald</td>
-                                        </tr>
+                                            </TableRowCell>
+                                            <TableRowCell>@or.Aantal</TableRowCell>
+                                            <TableRowCell>@or.AantalBetaald</TableRowCell>
+                                        </TableRow>
                                     }
-                                </tbody>
-                            </table>
+                                </TableBody>
+                            </Table>
+
                         }
 
                         <BestelActies BestellingId="@b.Id"
@@ -95,7 +96,7 @@ else
 
 @if (ToonProductSelector)
 {
-    <ProductSelector RondeId="@NieuwAangemaakteRonde.Id"
+    <ProductLijst RondeId="@NieuwAangemaakteRonde.Id"
                      RondeNr="@NieuwAangemaakteRonde.RondNr" />
 }
 
@@ -117,32 +118,7 @@ else
 
     private async Task NieuweRonde(int bestellingId)
     {
-        // Bestaat deze bestelling wel echt?
-        var bestelling = BestellingRepo.GetById(bestellingId);
-        if (bestelling == null)
-        {
-            Console.Error.WriteLine($"❌ BestellingId {bestellingId} bestaat niet.");
-            return;
-        }
-
-        // Volgende rondeNr bepalen
-        var bestaandeRondes = RondeRepo.GetByBestellingId(bestellingId);
-        var volgendeRondeNr = (bestaandeRondes.Max(r => (int?)r.RondNr) ?? 0) + 1;
-
-        var nieuweRonde = new Ronde
-        {
-            BestellingId = bestellingId,
-            Tijdstip = DateTime.Now,
-            Status = StatusEnum.Besteld,
-            RondNr = volgendeRondeNr
-        };
-
-        var rondeId = await RondeRepo.CreateAsync(nieuweRonde);
-        var aangemaakteRonde = RondeRepo.GetById(rondeId); 
-        NieuwAangemaakteRonde = aangemaakteRonde; 
-        ToonProductSelector = true;
-
-  
+        ToonProductSelector = true; 
     }
 
 

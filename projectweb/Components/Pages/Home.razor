@@ -4,36 +4,46 @@
 @inject IJSRuntime JS
 
 @using projectweb.Components.Tafels
+@using projectweb.Components.Bestellen
+
 @using projectweb.Repositories
+
 @rendermode InteractiveServer
 
 <h2>Bestelpagina voor Obers</h2>
 
-<!-- Sectieoverzicht -->
+ <ProductLijst />
 
+
+<!-- Sectieoverzicht -->
 <div class="card mb-3">
-    <div class="card-header d-flex align-items-center">
+    <div class="card-header collapse-toggle collapsed"
+         data-bs-toggle="collapse"
+         data-bs-target="#sectieCollapse"
+         aria-expanded="true"
+         style="cursor: pointer;">
         <span class="fw-semibold">Kies een Sectie van het restaurant</span>
-        <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="collapse" data-bs-target="#sectieCollapse">
-            Sectie wisselen
-        </button>
+        <i class="bi bi-chevron-down ms-auto"></i>
     </div>
 
     <div id="sectieCollapse" class="collapse show card-body">
-        <TafelSectieSelector SectieId="@GeselecteerdeSectieId"
+        <TafelSectieLijst SectieId="@GeselecteerdeSectieId"
                              OnSectieSelected="HandleSectieSelected" />
     </div>
 </div>
+
 
 <!-- Tafeloverzicht -->
 @if (GeselecteerdeSectieId != 0)
 {
     <div class="card mb-3">
-        <div class="card-header d-flex align-items-center">
+        <div class="card-header collapse-toggle collapsed"
+             data-bs-toggle="collapse"
+             data-bs-target="#tafelCollapse"
+             aria-expanded="true"
+             style="cursor: pointer;">
             <span class="fw-semibold">Selecteer een tafel</span>
-            <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="collapse" data-bs-target="#tafelCollapse">
-                Tafels tonen/verbergen
-            </button>
+            <i class="bi bi-chevron-down ms-auto"></i>
         </div>
 
         <div id="tafelCollapse" class="collapse show card-body">
@@ -45,6 +55,8 @@
     </div>
 }
 
+
+<!-- Bestellingoverzicht -->
 @if (GeselecteerdeTafelId is not null && GeselecteerdeSectieId != 0)
 {
     <div class="card mb-3">
@@ -103,6 +115,8 @@
         {
             GeselecteerdeTafelId = tafelId; // Open nieuwe
         }
+        JS.InvokeVoidAsync("bootstrapCollapseHelper.toggle", "#TafelCollapse");
+
 
         StateHasChanged();
     }
@@ -159,6 +173,8 @@
                               .Where(t => t.SectieId == sectieId)
                               .ToList();
         }
+        await JS.InvokeVoidAsync("bootstrapCollapseHelper.toggle", "#sectieCollapse");
+
         StateHasChanged();
     }
 
