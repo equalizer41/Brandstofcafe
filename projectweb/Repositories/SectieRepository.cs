@@ -18,5 +18,6 @@ namespace projectweb.Repositories
             using var connection = dbConnectionProvider.GetDatabaseConnection();
             return connection.Query<Sectie>("SELECT * FROM Sectie").ToList();
         }
+
     }
 }

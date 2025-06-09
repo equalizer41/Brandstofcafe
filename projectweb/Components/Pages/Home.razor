@@ -1,138 +1,62 @@
 ﻿@page "/"
-@inject TafelRepository TafelRepo
-@inject BestellingRepository BestellingRepo
-@inject IJSRuntime JS
-
+@inject BestellingStateService BestelState
 @using projectweb.Components.Flow
 @using projectweb.Repositories
 @rendermode InteractiveServer
+@inject IJSRuntime JS
+@implements IDisposable
+
 
 <h2>Bestelpagina voor Obers</h2>
 
-<!-- Sectieoverzicht -->
 
+<!-- Sectieoverzicht -->
 <div class="card mb-3">
-    <div class="card-header d-flex align-items-center">
+    <div class="card-header collapse-toggle collapsed"
+         data-bs-toggle="collapse"
+         data-bs-target="#sectieCollapse"
+         aria-expanded="true"
+         style="cursor: pointer;">
         <span class="fw-semibold">Kies een Sectie van het restaurant</span>
-        <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="collapse" data-bs-target="#sectieCollapse">
-            Sectie wisselen
-        </button>
+        <i class="bi bi-chevron-down ms-auto"></i>
     </div>
 
     <div id="sectieCollapse" class="collapse show card-body">
-        <TafelSectieLijst SectieId="@GeselecteerdeSectieId"
-                             OnSectieSelected="HandleSectieSelected" />
+        <TafelSectieLijst />
     </div>
 </div>
 
 <!-- Tafeloverzicht -->
-@if (GeselecteerdeSectieId != 0)
+@if (BestelState.GeselecteerdeSectie?.Id > 0)
 {
     <div class="card mb-3">
-        <div class="card-header d-flex align-items-center">
+        <div class="card-header collapse-toggle collapsed"
+             data-bs-toggle="collapse"
+             data-bs-target="#tafelCollapse"
+             aria-expanded="true"
+             style="cursor: pointer;">
             <span class="fw-semibold">Selecteer een tafel</span>
-            <button class="btn btn-sm btn-outline-secondary ms-auto" data-bs-toggle="collapse" data-bs-target="#tafelCollapse">
-                Tafels tonen/verbergen
-            </button>
+            <i class="bi bi-chevron-down ms-auto"></i>
         </div>
 
         <div id="tafelCollapse" class="collapse show card-body">
-            <TafelLijst Tafels="@Tafels"
-                            GeselecteerdeTafelId="@GeselecteerdeTafelId"
-                            OnToggleTafel="ToggleTafel"                        
-                            StartNieuweBestelling="StartNieuweBestelling" />
-
-        </div>
-    </div>
-}
-
-@if (GeselecteerdeTafelId is not null && GeselecteerdeSectieId != 0)
-{
-    <div class="card mb-3">
-        <div class="card-header d-flex align-items-center gap-3">
-            <h5 class="mb-0">Bestelling voor tafel @GeselecteerdeTafelId</h5>
-            <button class="btn btn-success btn-sm"
-                    @onclick="() => StartNieuweBestelling(GeselecteerdeTafelId.Value)">
-                ➕ Start nieuwe bestelling
-            </button>
-        </div>
-        <div class="card-body">
-            <TafelBestellingOverzicht TafelId="@GeselecteerdeTafelId.Value" />
+            <TafelLijst />
         </div>
     </div>
 }
 
 
 @code {
-    private List<Tafel> Tafels = new();
-    private int? GeselecteerdeTafelId = null;
-
-
-    private int GeselecteerdeTafelIdVoorNieuweBestelling;
-    private int GeselecteerdeSectieId;
-
     protected override void OnInitialized()
     {
-        Tafels = new();
+        BestelState.OnChange += StateHasChanged;
     }
 
-    private void ToggleTafel(int tafelId)
+    public void Dispose()
     {
-        if (GeselecteerdeTafelId == tafelId)
-        {
-            GeselecteerdeTafelId = null; // Sluit huidige
-        }
-        else
-        {
-            GeselecteerdeTafelId = tafelId; // Open nieuwe
-        }
-
-        StateHasChanged();
+        BestelState.OnChange -= StateHasChanged;
     }
 
-
-    private async Task StartNieuweBestelling(int tafelId)
-    {
-        var bestellingen = BestellingRepo.GetOnbetaaldeBestellingenVoorTafel(tafelId);
-        bool heeftOnbetaalde = bestellingen.Any();
-
-        if (heeftOnbetaalde)
-        {
-            GeselecteerdeTafelIdVoorNieuweBestelling = tafelId;
-            await JS.InvokeVoidAsync("bootstrapModalHelper.show", "#bevestigingModal");
-            return;
-        }
-
-        await MaakNieuweBestelling(tafelId);
-    }
-
-    private async Task MaakNieuweBestelling(int tafelId)
-    {
-        var bestelling = new Bestelling
-        {
-            TafelId = tafelId,
-            Tijdstip = DateTime.Now
-        };
-
-        await BestellingRepo.CreateAsync(bestelling);
-        StateHasChanged();
-    }
-    private async Task HandleSectieSelected(int sectieId)
-    {
-        if (GeselecteerdeSectieId == sectieId)
-        {
-            GeselecteerdeSectieId = 0;
-            Tafels = new();
-        }
-        else
-        {
-            GeselecteerdeSectieId = sectieId;
-            Tafels = TafelRepo.GetAll()
-                              .Where(t => t.SectieId == sectieId)
-                              .ToList();
-        }
-        StateHasChanged();
-    }
-
+    
 
 }

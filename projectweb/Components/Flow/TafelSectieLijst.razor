@@ -1,21 +1,20 @@
 ﻿@using projectweb.Repositories
 @inject SectieRepository SectieRepo
+@inject BestellingStateService BestelState
+@implements IDisposable
 
 <h3>Kies een Sectie van het restaurant</h3>
 
 <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
-@foreach(var s in Sectie)
+@foreach(var s in Secties)
 {
      <div class="col">
                 <div class="card h-100">
                     <div class="card-body">
                         <h5 class="card-title">@s.Naam </h5>
                 <button class="btn btn-primary" @onclick="() => SelecteerSectie(s.Id)">
-                    @(SectieId == s.Id ? "Sluit overzicht" : "Toon overzicht")
+                        @(BestelState.GeselecteerdeSectie?.Id == s.Id ? "Sluit overzicht" : "Toon overzicht")
                 </button>
-
-               
-
                     </div>
                 </div>
     </div>
@@ -23,22 +22,42 @@
 </div>
 
 @code {
-    [Parameter] public int SectieId { get; set; }
-    [Parameter] public EventCallback<int> OnSectieSelected { get; set; }
-
-    private List<Sectie> Sectie = new();
-
+    [Parameter] public EventCallback<int> TafelSectieIsGeselecteerd { get; set; }
+    private List<Sectie> Secties = new();
     protected override void OnParametersSet()
     {
-
-        Sectie = SectieRepo.GetAll();
+        Secties = SectieRepo.GetAll();
     }
+
     private async Task SelecteerSectie(int id)
     {
-        SectieId = id;
-        await OnSectieSelected.InvokeAsync(id);
+        var sectie = Secties.FirstOrDefault(s => s.Id == id);
+        Console.WriteLine($"[DEBUG] id heeft waarde: {id}");
 
+        if (sectie == null)
+            return;
 
+        // Toggle : deselecteer als hij al actief is
+        if (BestelState.GeselecteerdeSectie?.Id == sectie.Id)
+        {
+            BestelState.SelecteerSectie(null); // maakt de selectie leeg
+        }
+        else
+        {
+            BestelState.SelecteerSectie(sectie);
+        }
+        Console.WriteLine($"[DEBUG] TafelSectieLijst - GeselecteerdeSectieid heeft waarde: {BestelState.GeselecteerdeSectie?.Id}");
+        await TafelSectieIsGeselecteerd.InvokeAsync(id);
     }
+    protected override void OnInitialized()
+    {
+        BestelState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        BestelState.OnChange -= StateHasChanged;
+    }
+
 }
 

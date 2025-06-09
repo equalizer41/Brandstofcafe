@@ -13,7 +13,9 @@ builder.Services.AddScoped<BestellingRepository>();
 builder.Services.AddScoped<RondeRepository>();
 builder.Services.AddScoped<OrderRegelRepository>();
 builder.Services.AddScoped<SectieRepository>();
-builder.Services.AddScoped<CategorieRepository>(); 
+builder.Services.AddScoped<CategorieRepository>();
+builder.Services.AddSingleton<BestellingStateService>();
+
 
 builder.Services
     .AddBlazorise(options =>

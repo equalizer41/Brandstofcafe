@@ -1,6 +1,9 @@
 ﻿@using projectweb.Repositories
 @inject ProductRepository ProductRepo
 @inject CategorieRepository CategorieRepo
+@inject BestellingStateService BestelState
+
+@using projectweb.Components.Flow
 
 
 <h3>Product Selector voor ronde @RondeNr</h3>
@@ -45,7 +48,7 @@ else
             <div class="modal-body">
                 @foreach (var subCategorie in AlleCategorieen.Where(c => c.OuderCategorieId != null))
                 {
-                    <CategorieAccordion Categorie="subCategorie"
+                    <CategorieLijst Categorie="subCategorie"
                                         AlleProducten="AlleProducten"
                                         TijdelijkeAantallen="TijdelijkeAantallen"
                                         GeselecteerdeAddOns="GeselecteerdeAddOns"

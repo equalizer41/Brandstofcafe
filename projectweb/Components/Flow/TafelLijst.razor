@@ -1,46 +1,66 @@
 ﻿@using projectweb.Components.Flow
 @using projectweb.Repositories
-@using Microsoft.AspNetCore.Components
+@inject BestellingStateService BestelState
+@inject TafelRepository TafelRepo
+@implements IDisposable
 
+<p>DEBUG: Loaded sectie ID = @BestelState.GeselecteerdeSectie?.Id</p>
+<p>DEBUG: Aantal tafels = @Tafels?.Count</p>
 
 <h3>Selecteer een tafel</h3>
 
-@if (Tafels is null || !Tafels.Any())
-{
-    <p>Laden...</p>
-}
-else
-{
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
-        @foreach (var tafel in Tafels)
-        {
-            <div class="col">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">Tafel @tafel.Naam (ID: @tafel.Id)</h5>
-                        <p class="card-text">Sectie: @tafel.Sectie?.Naam</p>
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+    @foreach (var t in Tafels)
+    {
+        <div class="col">
+                <div class="card-body">
+                <h5 class="card-title">Tafel @t.Naam (ID: @t.Id)</h5>
+                <button class="btn btn-primary" @onclick="() => SelecteerTafel(t.Id)">
 
-                        <button class="btn btn-primary"
-                                @onclick="() => OnToggleTafel.InvokeAsync(tafel.Id)">
-                            @(GeselecteerdeTafelId == tafel.Id ? "Sluit overzicht" : "Toon overzicht")
-                        </button>
-
-
-                    </div>
+                    @(BestelState.GeselecteerdeTafel?.Id == t.Id ? "Sluit overzicht" : "Toon overzicht")
+                </button>
                 </div>
-            </div>
-        }
-    </div>
-}
+        </div>
+    }
+</div>
+
 
 @code {
-    [Parameter] public List<Tafel> Tafels { get; set; } = new();
-    [Parameter] public int? GeselecteerdeTafelId { get; set; }
-    [Parameter] public EventCallback<int> OnToggleTafel { get; set; }
-    [Parameter] public EventCallback<int> StartNieuweBestelling { get; set; }
+    [Parameter] public EventCallback<int> TafelIsGeselecteerd { get; set; }
+    private List<Tafel> Tafels { get; set; } = new();
+
 
     protected override void OnInitialized()
     {
-        Console.WriteLine("TafelOverzicht component geladen!");
+        Console.WriteLine("[DEBUG] TafelLijst - OnInitialized aangeroepen");
+        Console.WriteLine($"[DEBUG] TafelLijst - GeselecteerdeSectieid heeft waarde: {BestelState.GeselecteerdeSectie?.Id}");
+        Tafels = TafelRepo.GetAll()
+                          .Where(t => t.SectieId == BestelState.GeselecteerdeSectie?.Id)
+                          .ToList();
+        Console.WriteLine($"[DEBUG] Tafels geladen: {Tafels.Count}");
+        
+        BestelState.OnChange += StateHasChanged;
+    }
+
+    private void SelecteerTafel(int id)
+    {
+        var tafel = Tafels.FirstOrDefault(t => t.Id == id);
+
+        // Toggle : deselecteer als hij al actief is
+
+        if (BestelState.GeselecteerdeTafel?.Id == tafel?.Id)
+        {
+            BestelState.SelecteerTafel(null); // Deselecteer 
+        }
+        else
+        {
+            BestelState.SelecteerTafel(tafel);
+
+        }
+    }
+
+    public void Dispose()
+    {
+        BestelState.OnChange -= StateHasChanged;
     }
 }
