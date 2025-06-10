@@ -9,6 +9,7 @@
 
 <h3>Selecteer een tafel</h3>
 
+<!-- Toont alle tafels in de tabel Tafels op basis van SectieID-->
 <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
     @foreach (var t in Tafels)
     {
@@ -27,9 +28,10 @@
 
 @code {
     [Parameter] public EventCallback<int> TafelIsGeselecteerd { get; set; }
+    // Maakt een nieuwe lijst om Tafels in op te slaan
     private List<Tafel> Tafels { get; set; } = new();
 
-
+    // Plaatst alle Tafels waarbij de sectieID gelijk is met de sectieid uit de bestelstate
     protected override void OnInitialized()
     {
         Console.WriteLine("[DEBUG] TafelLijst - OnInitialized aangeroepen");
@@ -38,10 +40,24 @@
                           .Where(t => t.SectieId == BestelState.GeselecteerdeSectie?.Id)
                           .ToList();
         Console.WriteLine($"[DEBUG] Tafels geladen: {Tafels.Count}");
-        
-        BestelState.OnChange += StateHasChanged;
+
+        // Roept HerlaadTafels aan zodat de tafels tabel weer wordt vernieuwd als een nieuwe sectie wordt gekozen
+        BestelState.OnChange += HerlaadTafel;
     }
 
+    // Herlaad alle Tafels waarbij de sectieID gelijk is met de sectieid uit de bestelstate
+
+    private void HerlaadTafel()
+    {
+        Tafels = TafelRepo.GetAll()
+                        .Where(t => t.SectieId == BestelState.GeselecteerdeSectie?.Id)
+                        .ToList();
+       
+        BestelState.OnChange += StateHasChanged;
+
+    }
+
+    // Geeft de geselecteerde tafel door aan de bestelstate -> daarna kan tafelbesteloverzicht worden geladen
     private void SelecteerTafel(int id)
     {
         var tafel = Tafels.FirstOrDefault(t => t.Id == id);
@@ -57,10 +73,11 @@
             BestelState.SelecteerTafel(tafel);
 
         }
+        StateHasChanged();
     }
 
     public void Dispose()
     {
-        BestelState.OnChange -= StateHasChanged;
+        BestelState.OnChange -= HerlaadTafel;
     }
 }

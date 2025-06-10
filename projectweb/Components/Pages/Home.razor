@@ -45,6 +45,11 @@
     </div>
 }
 
+@if (BestelState.GeselecteerdeSectie?.Id > 0 && BestelState.GeselecteerdeTafel?.Id > 0)
+{
+    <TafelBestellingOverzicht />
+}
+
 
 @code {
     protected override void OnInitialized()

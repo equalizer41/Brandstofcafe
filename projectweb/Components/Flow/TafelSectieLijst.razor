@@ -5,6 +5,7 @@
 
 <h3>Kies een Sectie van het restaurant</h3>
 
+<!-- Toont alle kiesbare secties-->
 <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
 @foreach(var s in Secties)
 {
@@ -23,12 +24,16 @@
 
 @code {
     [Parameter] public EventCallback<int> TafelSectieIsGeselecteerd { get; set; }
+    // Maakt een nieuwe lijst om de Secties in op te slaan
     private List<Sectie> Secties = new();
+
+    // Haalt alle Secties op uit de SectieTabel via de Repository
     protected override void OnParametersSet()
     {
         Secties = SectieRepo.GetAll();
     }
 
+    // Selecteer de eerste waarde uit de lijst Secties en zet deze door naar de BestelState voor het bijhouden van de sectiekeuze -> Daarna kan TafelLijst worden geladen
     private async Task SelecteerSectie(int id)
     {
         var sectie = Secties.FirstOrDefault(s => s.Id == id);
@@ -37,7 +42,7 @@
         if (sectie == null)
             return;
 
-        // Toggle : deselecteer als hij al actief is
+        // Toggle : deselecteer het component als hij al actief is
         if (BestelState.GeselecteerdeSectie?.Id == sectie.Id)
         {
             BestelState.SelecteerSectie(null); // maakt de selectie leeg
@@ -48,7 +53,10 @@
         }
         Console.WriteLine($"[DEBUG] TafelSectieLijst - GeselecteerdeSectieid heeft waarde: {BestelState.GeselecteerdeSectie?.Id}");
         await TafelSectieIsGeselecteerd.InvokeAsync(id);
+
+        StateHasChanged();
     }
+    // Hiermee worden wijzigingen in de bestelstate doorgegeven
     protected override void OnInitialized()
     {
         BestelState.OnChange += StateHasChanged;

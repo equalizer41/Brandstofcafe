@@ -4,36 +4,71 @@
 @inject BestellingStateService BestelState
 @implements IDisposable
 
+<!-- Als er bestellingen zijn toon deze dan op het scherm, kijkt ook of de bestelling is betaald en geeft een status-->
 @if (Bestellingen.Any())
 {
-    
+    foreach(var b in Bestellingen)
+    {
+        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
+            <span><strong>Bestelling @b.Id</strong></span>
+            <span class="badge bg-secondary">@b.Rondes.Count ronde@(b.Rondes.Count == 1 ? "" : "s")</span>
+
+            @if (b.IsBetaald)
+            {
+                <span class="badge bg-success">✔ Betaald</span>
+            }
+            else
+            {
+                <span class="badge bg-danger">✖ Niet betaald</span>
+            }  
+        </div>
+        foreach (var r in Bestellingen)
+        {
+
+        }
+    }
+   
 }
+
+<!-- Anders niks tonen  LATER TOEVOEGEN > Functie nieuwe bestelling aanmaken-->
 else
 {
     <p>Geen bestellingen gevonden.</p>
 }
 
-@if (ToonProductSelector)
-{
-    <ProductLijst  />
-}
-
-
-
 @code {
     [Parameter] public EventCallback<int> BestellingOverzichtIsGetoond { get; set; }
     private Dictionary<int, Product> ProductenLookup = new();
     private List<Bestelling> Bestellingen = new();
-    private bool ToonProductSelector = false;
 
     protected override void OnInitialized()
     {
 
-        Bestellingen = BestellingRepo.GetAll();
+        Bestellingen = BestellingRepo.GetAll()
+                         .Where(b => b.TafelId == BestelState.GeselecteerdeTafel?.Id)
+                          .ToList();
         Console.WriteLine($"[DEBUG] Bestellingen geladen: {Bestellingen.Count}");
 
-        BestelState.OnChange += StateHasChanged;
+        BestelState.OnChange += HerlaadBestellingen;
     }
+
+    private void HerlaadBestellingen()
+    {
+       
+        Bestellingen = BestellingRepo.GetAll()
+                       .Where(b => b.TafelId == BestelState.GeselecteerdeTafel?.Id)
+                        .ToList();
+
+        StateHasChanged();
+
+    }
+
+
+    public void Dispose()
+    {
+        BestelState.OnChange -= HerlaadBestellingen;
+    }
+
 
 
 }
