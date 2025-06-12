@@ -2,38 +2,108 @@
 @using projectweb.Repositories
 @inject BestellingRepository BestellingRepo
 @inject BestellingStateService BestelState
+@inject IJSRuntime JS
 @implements IDisposable
 
-<!-- Als er bestellingen zijn toon deze dan op het scherm, kijkt ook of de bestelling is betaald en geeft een status-->
 @if (Bestellingen.Any())
 {
-    foreach(var b in Bestellingen)
-    {
-        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2">
-            <span><strong>Bestelling @b.Id</strong></span>
-            <span class="badge bg-secondary">@b.Rondes.Count ronde@(b.Rondes.Count == 1 ? "" : "s")</span>
-
-            @if (b.IsBetaald)
-            {
-                <span class="badge bg-success">✔ Betaald</span>
-            }
-            else
-            {
-                <span class="badge bg-danger">✖ Niet betaald</span>
-            }  
-        </div>
-        foreach (var r in Bestellingen)
+    <div class="accordion" id="bestellingenAccordion@(BestelState.GeselecteerdeTafel?.Id)">
+        @foreach (var b in Bestellingen)
         {
+           <button class="accordion-button collapsed d-flex justify-content-between align-items-center"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#collapseBestelling@b.Id"
+                aria-expanded="false"
+                aria-controls="collapseBestelling@b.Id"
+                @onclick="@(() => SelecteerBestelling(b))">
 
-        }
-    }
-   
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fw-bold">Bestelling @b.Id</span>
+                            <span class="badge bg-secondary">@b.Rondes.Count ronde@(b.Rondes.Count == 1 ? "" : "s")</span>
+                            @if (b.IsBetaald)
+                            {
+                                <span class="badge bg-success">✔ Betaald</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">✖ Niet betaald</span>
+                            }
+                        </div>
+
+                    </button>
+              
+
+                     <div id="collapseBestelling@b.Id"
+                         class="accordion-collapse collapse"
+                         aria-labelledby="headingBestelling@b.Id">
+
+
+                        @foreach (var r in b.Rondes)
+                        {
+                            <h6 class="mt-3">Ronde @r.RondNr</h6>
+                            decimal totaalRonde = 0;
+
+                            <table class="table table-bordered table-striped">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40%">Product</th>
+                                        <th style="width: 15%">Aantal</th>
+                                        <th style="width: 15%">Prijs per stuk</th>
+                                        <th style="width: 15%">Subtotaal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var o in r.OrderRegels)
+                                    {
+                                        var productPrijs = o.Product?.Prijs ?? 0;
+                                        var regelTotaal = o.Aantal * productPrijs;
+                                        decimal addOnTotaal = 0;
+
+                                        <tr>
+                                            <td>@o.Product?.Naam</td>
+                                            <td>@o.Aantal</td>
+                                            <td>@productPrijs.ToString("C")</td>
+                                            <td>@regelTotaal.ToString("C")</td>
+                                        </tr>
+
+                                        @if (o.AddOns?.Any() == true)
+                                        {
+                                            foreach (var addon in o.AddOns)
+                                            {
+                                                var naam = addon?.ProductAddOn?.AddOn?.Naam ?? "Onbekend";
+                                                var prijs = addon?.ProductAddOn?.Prijs ?? 0;
+                                                var addonPrijs = prijs * o.Aantal;
+                                                addOnTotaal += addonPrijs;
+
+                                                <tr class="table-sm text-secondary">
+                                                    <td class="ps-5">↳ @naam</td>
+                                                    <td>@o.Aantal</td>
+                                                    <td>@prijs.ToString("C")</td>
+                                                    <td>@addonPrijs.ToString("C")</td>
+                                                </tr>
+                                            }
+                                        }
+
+                                        totaalRonde += regelTotaal + addOnTotaal;
+                                    }
+
+                                    <tr class="table-active fw-bold">
+                                        <td colspan="4" class="text-start">💰 Totaal ronde: @totaalRonde.ToString("C")</td>
+                                    </tr>
+
+                                  
+                                </tbody>
+                            </table>
+                        }          <BestelActies />  
+                    </div>
+          
+  }
+    </div>
 }
-
-<!-- Anders niks tonen  LATER TOEVOEGEN > Functie nieuwe bestelling aanmaken-->
 else
 {
-    <p>Geen bestellingen gevonden.</p>
+    <p class="text-muted">Geen bestellingen gevonden.</p>
 }
 
 @code {
@@ -43,32 +113,42 @@ else
 
     protected override void OnInitialized()
     {
-
-        Bestellingen = BestellingRepo.GetAll()
-                         .Where(b => b.TafelId == BestelState.GeselecteerdeTafel?.Id)
-                          .ToList();
-        Console.WriteLine($"[DEBUG] Bestellingen geladen: {Bestellingen.Count}");
-
+        LaadBestellingen();
         BestelState.OnChange += HerlaadBestellingen;
     }
 
-    private void HerlaadBestellingen()
+    private void LaadBestellingen()
     {
-       
-        Bestellingen = BestellingRepo.GetAll()
-                       .Where(b => b.TafelId == BestelState.GeselecteerdeTafel?.Id)
-                        .ToList();
+        var tafel = BestelState.GeselecteerdeTafel;
+        if (tafel is null)
+        {
+            Bestellingen = new List<Bestelling>();
+            return;
+        }
 
-        StateHasChanged();
-
+        Bestellingen = BestellingRepo.OpenBestellingBijTafelID(tafel.Id);
+        Console.WriteLine($"[DEBUG] Bestellingen geladen: {Bestellingen.Count}");
     }
 
+    private void SelecteerBestelling(Bestelling b)
+    {
+
+        var laatsteRonde = b.Rondes.MaxBy(r => r.RondNr);
+        BestelState.StartNieuweBestellingMetRonde(b, laatsteRonde);
+
+
+        StateHasChanged(); // Zorgt ervoor dat UI zich meteen aanpast
+    }
+    private void HerlaadBestellingen()
+    {
+        LaadBestellingen();
+        StateHasChanged();
+    }
 
     public void Dispose()
     {
         BestelState.OnChange -= HerlaadBestellingen;
     }
-
-
+  
 
 }

@@ -1,29 +1,70 @@
-﻿@inject BestellingStateService BestelState
+﻿@inject BestellingRepository BestellingRepo
+@inject BestellingStateService BestelState
+@inject NavigationManager Nav
+@using projectweb.Repositories
 
+<br />
+<div class="d-flex flex-row gap-2 flex-wrap">
+    <button class="btn btn-primary" @onclick="NieuweBestelling" disabled="@(actieveBestelling is not null)">➕ Nieuwe bestelling</button>
 
+    <button class="btn btn-primary" @onclick="NieuweRonde" disabled="@(actieveBestelling is null)">🌀 Nieuwe ronde</button>
 
-<div class="d-flex gap-2 mt-3">
-    <button class="btn btn-outline-primary"
-            @onclick="async () => await OnNieuweRonde.InvokeAsync(BestellingId)">
-        ➕ Nieuwe ronde
-    </button>
+    <button class="btn btn-primary" @onclick="HerhaalLaatsteRonde" disabled="@(actieveBestelling?.Rondes?.Any() != true)">🔁 Herhaal laatste ronde</button>
 
-    <button class="btn btn-outline-secondary"
-            @onclick="async () => await OnHerhaalRonde.InvokeAsync(null)">
-        🔁 Herhaal laatste ronde
-    </button>
-
-    <button class="btn btn-success"
-            @onclick="async () => await OnBetaalAlles.InvokeAsync(null)">
-        💳 Betalen
-    </button>
-
+    <button class="btn btn-success" @onclick="NaarBetaalPagina" disabled="@(actieveBestelling is null)">💳 Afronden & betalen</button>
 </div>
 
 @code {
-    [Parameter] public int BestellingId { get; set; }
-    [Parameter] public EventCallback<int> OnNieuweRonde { get; set; }
-    [Parameter] public EventCallback OnHerhaalRonde { get; set; }
-    [Parameter] public EventCallback OnBetaalAlles { get; set; }
-}
+    private Bestelling? actieveBestelling => BestelState.ActieveBestelling;
+    private Ronde? actieveRonde => BestelState.ActieveRonde;
 
+
+    private void NieuweBestelling()
+    {
+
+    }
+    private void NieuweRonde()
+    {
+
+    }
+
+    private async Task HerhaalLaatsteRonde()
+    {
+        if (actieveBestelling?.Rondes?.Any() != true)
+            return;
+
+        var laatsteRonde = actieveBestelling.Rondes.Last();
+
+        var nieuweRonde = await BestellingRepo.HerhaalRonde(laatsteRonde.Id);
+        if (nieuweRonde is not null)
+        {
+            // Voeg toe aan de huidige bestelling
+            actieveBestelling.Rondes.Add(nieuweRonde);
+
+            // Zet nieuwe actieve ronde
+            BestelState.StartNieuweRonde(nieuweRonde);
+        }
+    }
+
+
+    private void NaarBetaalPagina()
+    {
+        if (actieveBestelling is not null)
+        {
+            Nav.NavigateTo($"/betalen/");
+        }
+    }
+
+
+    // Hiermee worden wijzigingen in de bestelstate doorgegeven
+    protected override void OnInitialized()
+    {
+        BestelState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        BestelState.OnChange -= StateHasChanged;
+    }
+
+}

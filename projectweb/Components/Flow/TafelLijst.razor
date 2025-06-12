@@ -1,11 +1,12 @@
 ﻿@using projectweb.Components.Flow
 @using projectweb.Repositories
 @inject BestellingStateService BestelState
+@inject BestellingRepository BestellingRepo
+
 @inject TafelRepository TafelRepo
 @implements IDisposable
+@inject IJSRuntime JS
 
-<p>DEBUG: Loaded sectie ID = @BestelState.GeselecteerdeSectie?.Id</p>
-<p>DEBUG: Aantal tafels = @Tafels?.Count</p>
 
 <h3>Selecteer een tafel</h3>
 
@@ -15,7 +16,7 @@
     {
         <div class="col">
                 <div class="card-body">
-                <h5 class="card-title">Tafel @t.Naam (ID: @t.Id)</h5>
+                <h5 class="card-title">Tafel @t.Naam</h5>
                 <button class="btn btn-primary" @onclick="() => SelecteerTafel(t.Id)">
 
                     @(BestelState.GeselecteerdeTafel?.Id == t.Id ? "Sluit overzicht" : "Toon overzicht")
@@ -58,24 +59,40 @@
     }
 
     // Geeft de geselecteerde tafel door aan de bestelstate -> daarna kan tafelbesteloverzicht worden geladen
-    private void SelecteerTafel(int id)
+    private async Task SelecteerTafel(int id)
     {
         var tafel = Tafels.FirstOrDefault(t => t.Id == id);
 
-        // Toggle : deselecteer als hij al actief is
-
         if (BestelState.GeselecteerdeTafel?.Id == tafel?.Id)
         {
-            BestelState.SelecteerTafel(null); // Deselecteer 
+            BestelState.SelecteerTafel(null);
         }
-        else
+        else if (tafel is not null)
         {
             BestelState.SelecteerTafel(tafel);
 
+            // Bestelling + ronde selecteren
+            var bestellingen = BestellingRepo.OpenBestellingBijTafelID(tafel.Id);
+            var laatsteBestelling = bestellingen.OrderByDescending(b => b.Id).FirstOrDefault();
+
+            if (laatsteBestelling is not null)
+            {
+                var laatsteRonde = laatsteBestelling.Rondes
+                    .OrderByDescending(r => r.RondNr)
+                    .FirstOrDefault();
+
+                if (laatsteRonde is not null)
+                {
+                    BestelState.StartNieuweBestellingMetRonde(laatsteBestelling, laatsteRonde);
+
+                    // Open/sluit de collapse van deze bestelling
+                    await JS.InvokeVoidAsync("sluitAlleCollapses");            
+                }
+            }
         }
+
         StateHasChanged();
     }
-
     public void Dispose()
     {
         BestelState.OnChange -= HerlaadTafel;

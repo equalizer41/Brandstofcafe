@@ -1,8 +1,119 @@
-﻿@inject BestellingStateService BestelState
+﻿@using projectweb.Repositories
+@using System
+@inject BestellingRepository BestellingRepo
+@inject BestellingStateService BestelState
+@implements IDisposable
 
+@if (rekeningItems == null)
+{
+    <p class="text-muted">Rekening wordt geladen...</p>
+}
+else if (!rekeningItems.Any())
+{
+    <p class="text-muted">Geen bestellingen voor deze tafel.</p>
+}
+else
+{
+@foreach (var groep in rekeningItems.GroupBy(i => i.RondeNr))
+{
+    <h5 class="mt-4 text-primary">Ronde @groep.Key</h5>
 
-<h3>RekeningOverzicht</h3>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Aantal</th>
+                <th>Betaald</th>
+                <th>Te betalen</th>
+                <th>SelectieAantal</th>
+                <th>Prijs</th>
+                <th>Subtotaal</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in groep)
+            {
+                if (!item.IsAddOn)
+                {
+                    <tr>
+                        <td>@item.ProductNaam</td>
+                        <td>@item.Aantal</td>
+                        <td>@item.AantalBetaald</td>
+                        <td>@(item.Aantal - item.AantalBetaald)</td>
+                        <td><input type="number" class="form-control form-control-sm" min="0" max="@(item.Aantal - item.AantalBetaald)" @bind="item.SelectieAantal" /></td>
+                        <td>@item.PrijsPerStuk.ToString("C")</td>
+                        <td>@item.Subtotaal.ToString("C")</td>
+                    </tr>
 
-@code {
+                    // Toon AddOns onder deze regel
+                    var addons = groep.Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId);
+                    foreach (var addon in addons)
+                    {
+                        <tr class="text-secondary table-sm">
+                            <td class="ps-5">↳ @addon.ProductNaam</td>
+                            <td>@addon.Aantal</td>
+                            <td>@addon.AantalBetaald</td>
+                            <td>@(addon.Aantal - addon.AantalBetaald)</td>
+                             <td><input type="number" class="form-control form-control-sm" min="0" max="@(item.Aantal - item.AantalBetaald)" @bind="item.SelectieAantal" /></td>
+                            <td>@addon.PrijsPerStuk.ToString("C")</td>
+                            <td>@addon.Subtotaal.ToString("C")</td>
+                        </tr>
+                    }
+                }
+            }
+
+            <tr class="fw-bold table-light">
+                <td colspan="5">Totaal ronde @groep.Key:</td>
+                <td>@groep.Sum(i => i.NogTeBetalen).ToString("C")</td>
+            </tr>
+        </tbody>
+    </table>
+    <button class="btn btn-success" @onclick="BetaalGeselecteerde">Afrekenen</button>
 
 }
+}
+
+@code {
+    private List<RekeningItem> rekeningItems = new();
+    private Dictionary<int, int> betalingen = new(); // OrderRegelId → Aantal geselecteerd
+
+  
+    protected override void OnParametersSet()
+    {
+        if (BestelState.GeselecteerdeTafel != null)
+        {
+            rekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel.Id);
+        }
+        else
+        {
+            rekeningItems.Clear();
+        }
+    }
+
+private async Task BetaalGeselecteerde()
+    {
+    var wijzigingen = rekeningItems
+        .Where(i => i.SelectieAantal > 0)
+        .ToDictionary(i => i.OrderRegelId, i => i.SelectieAantal);
+
+    if (wijzigingen.Any())
+    {
+        await BestellingRepo.UpdateAantalBetaaldAsync(wijzigingen);
+        rekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel!.Id);
+    }
+}
+
+    private void Herlaad()
+    {
+        rekeningItems = BestelState.RekeningItems;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        BestelState.OnChange -= Herlaad;
+    }
+     
+}
+
+

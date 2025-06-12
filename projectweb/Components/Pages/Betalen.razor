@@ -1,11 +1,15 @@
 ﻿@page "/betalen"
+@inject BestellingStateService BestelState
+@using projectweb.Components.Flow
+@using projectweb.Repositories
+@rendermode InteractiveServer
+@inject IJSRuntime JS
 
 <h3>Betalen</h3>
 
-<p>Selecteer een tafel om de openstaande rondes te bekijken en de betaling af te handelen.</p>
+<RekeningOverzicht />
 
-<!-- Later uit te breiden met selectiecomponent, lijst van rondes, splitsing per persoon etc. -->
+@code {
+   
 
-<div class="alert alert-info">
-    Betalingsfunctionaliteit komt hier: per persoon of volledig, kostenplaats-optie, bon tonen.
-</div>
+}

@@ -1,4 +1,6 @@
-﻿
+﻿using projectweb;
+using projectweb.Repositories;
+
 public class BestellingStateService
 {
     // Contextselectie
@@ -17,6 +19,8 @@ public class BestellingStateService
 
     // Betaling
     public List<Bestelling> TeBetalenBestellingen { get; private set; } = new();
+    public List<RekeningItem> RekeningItems { get; private set; } = new();
+
 
     public event Action? OnChange;
 
@@ -47,6 +51,13 @@ public class BestellingStateService
         GeselecteerdeAddOns.Clear();
         NotifyStateChanged();
     }
+
+    public void StartNieuweRonde(Ronde nieuweRonde)
+    {
+        ActieveRonde = nieuweRonde;
+        NotifyStateChanged();
+    }
+
 
     // Productkeuze
     public void SelecteerProduct(Product product)
@@ -94,6 +105,32 @@ public class BestellingStateService
     }
 
     // Betalingsbeheer
+    // rekeningsitems
+
+    // Voor gedeeltelijke betaling
+    public List<OrderRegel> GeselecteerdeTeBetalenRegels { get; private set; } = new();
+
+    public void SelecteerOrderRegelVoorBetaling(OrderRegel regel)
+    {
+        if (!GeselecteerdeTeBetalenRegels.Contains(regel))
+        {
+            GeselecteerdeTeBetalenRegels.Add(regel);
+            NotifyStateChanged();
+        }
+    }
+
+    public void VerwijderOrderRegelVanBetaling(OrderRegel regel)
+    {
+        GeselecteerdeTeBetalenRegels.Remove(regel);
+        NotifyStateChanged();
+    }
+
+    public void ClearGeselecteerdeRegels()
+    {
+        GeselecteerdeTeBetalenRegels.Clear();
+        NotifyStateChanged();
+    }
+
     public void VoegTeBetalenToe(Bestelling bestelling)
     {
         if (!TeBetalenBestellingen.Contains(bestelling))
@@ -106,6 +143,14 @@ public class BestellingStateService
         TeBetalenBestellingen.Clear();
         NotifyStateChanged();
     }
+    public void StartNieuweBestellingMetRonde(Bestelling bestelling, Ronde ronde)
+    {
+        ActieveBestelling = bestelling;
+        ActieveRonde = ronde;
+        OrderRegelsInOpbouw.Clear();
+        GeselecteerdeAddOns.Clear();
+        NotifyStateChanged();
+    }
 
     // Interne tools
     private void ClearContext()
@@ -116,6 +161,9 @@ public class BestellingStateService
         GeselecteerdeAddOns.Clear();
         TeBetalenBestellingen.Clear();
     }
+
+
+  
 
     private void NotifyStateChanged() => OnChange?.Invoke();
 }
