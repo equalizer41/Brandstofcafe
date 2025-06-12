@@ -35,8 +35,7 @@
     // Plaatst alle Tafels waarbij de sectieID gelijk is met de sectieid uit de bestelstate
     protected override void OnInitialized()
     {
-        Console.WriteLine("[DEBUG] TafelLijst - OnInitialized aangeroepen");
-        Console.WriteLine($"[DEBUG] TafelLijst - GeselecteerdeSectieid heeft waarde: {BestelState.GeselecteerdeSectie?.Id}");
+        
         Tafels = TafelRepo.GetAll()
                           .Where(t => t.SectieId == BestelState.GeselecteerdeSectie?.Id)
                           .ToList();

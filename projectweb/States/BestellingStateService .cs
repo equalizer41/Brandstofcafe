@@ -162,8 +162,5 @@ public class BestellingStateService
         TeBetalenBestellingen.Clear();
     }
 
-
-  
-
     private void NotifyStateChanged() => OnChange?.Invoke();
 }

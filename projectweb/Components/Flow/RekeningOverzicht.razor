@@ -78,30 +78,21 @@ else
     private Dictionary<int, int> betalingen = new(); // OrderRegelId → Aantal geselecteerd
 
   
-    protected override void OnParametersSet()
+    protected override void OnInitialized()
     {
         if (BestelState.GeselecteerdeTafel != null)
         {
             rekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel.Id);
         }
-        else
-        {
-            rekeningItems.Clear();
-        }
     }
 
-private async Task BetaalGeselecteerde()
+    private async Task BetaalGeselecteerde()
     {
-    var wijzigingen = rekeningItems
-        .Where(i => i.SelectieAantal > 0)
-        .ToDictionary(i => i.OrderRegelId, i => i.SelectieAantal);
-
-    if (wijzigingen.Any())
-    {
-        await BestellingRepo.UpdateAantalBetaaldAsync(wijzigingen);
+        await BestellingRepo.BetaalGeselecteerdeAsync(rekeningItems);
         rekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel!.Id);
+        StateHasChanged();
     }
-}
+
 
     private void Herlaad()
     {

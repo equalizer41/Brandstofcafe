@@ -4,6 +4,11 @@ using projectweb.Repositories;
 using Blazorise;
 using Blazorise.Bootstrap5;
 using Blazorise.Icons.FontAwesome;
+using System.Globalization;
+
+var culture = new CultureInfo("nl-NL");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +40,11 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<DbConnectionProvider>();
 
 var app = builder.Build();
+
+
+CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("nl-NL");
+CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("nl-NL");
+
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

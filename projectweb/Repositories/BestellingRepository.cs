@@ -434,6 +434,38 @@ ORDER BY o.Id, oa.Id;
             return result;
         }
 
+        public async Task BetaalGeselecteerdeAsync(IEnumerable<RekeningItem> items)
+        {
+            const string sql = @"
+        UPDATE OrderRegel
+        SET AantalBetaald = AantalBetaald + @Aantal
+        WHERE Id = @OrderRegelId;
+    ";
+
+            var wijzigingen = items
+                .Where(i => i.SelectieAantal > 0)
+                .Select(i => new
+                {
+                    OrderRegelId = i.OrderRegelId,
+                    Aantal = i.SelectieAantal
+                })
+                .ToList();
+
+            if (!wijzigingen.Any())
+                return;
+
+            using var connection = dbConnectionProvider.GetDatabaseConnection();
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+
+            foreach (var wijziging in wijzigingen)
+            {
+                await connection.ExecuteAsync(sql, wijziging, transaction);
+            }
+
+            transaction.Commit();
+        }
+
         public async Task UpdateAantalBetaaldAsync(Dictionary<int, int> wijzigingen)
         {
             using var connection = dbConnectionProvider.GetDatabaseConnection();
