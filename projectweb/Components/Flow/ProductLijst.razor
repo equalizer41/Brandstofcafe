@@ -29,7 +29,9 @@
                     <td>@regel.Aantal</td>
                     <td>@product?.Prijs.ToString("C")</td>
                     <td>@(regel.Aantal* product?.Prijs ?? 0).ToString("C")</td>
-                    <td><button class="btn btn-sm btn-danger" @onclick="() => VerwijderRegel(regel)">🗑</button></td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" @onclick="() => VerwijderRegel(regel)">🗑</button>
+                    </td>
                 </tr>
                 @foreach (var addon in regel.AddOns)
                 {
@@ -64,23 +66,22 @@ else
                         <div class="card-body">
                             <h6 class="card-title">@product.Naam</h6>
                             <p class="card-text">€@product.Prijs</p>
+
                             @foreach (var pac in product.AddOnCategorieen)
                             {
                                 <label class="form-label d-block">@pac.AddOnCategorie.Naam</label>
                                 @foreach (var optie in pac.AddOnCategorie.Opties)
                                 {
                                     <div class="form-check mb-1">
-                                     <input type="checkbox"
-                                       class="form-check-input"
-                                       @bind-value="GetAddOnState(product.Id, optie.Id)"
-                                       @bind-value:event="onchange"
-                                       @onchange="e => SetAddOnState(product.Id, optie.Id, (bool)e.Value!)" />
-
-
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               checked="@GetAddOnState(product.Id, optie.Id)"
+                                               @onchange="e => SetAddOnState(product.Id, optie.Id, (bool)e.Value!)" />
                                         <label class="form-check-label">@optie.Naam</label>
                                     </div>
                                 }
                             }
+
                             <button class="btn btn-sm btn-primary mt-2" @onclick="() => VoegProductToe(product)">
                                 Toevoegen
                             </button>
@@ -104,7 +105,7 @@ else
     private List<Categorie> AlleCategorieen = new();
     private List<OrderRegel> OrderRegels => BestelState.OrderRegelsInOpbouw;
 
-    // Per geselecteerd product-id + addon-id
+    // Geselecteerde add-ons per product/addon combinatie
     private Dictionary<(int productId, int addOnId), bool> GeselecteerdeAddOns = new();
 
     protected override void OnInitialized()
@@ -113,12 +114,12 @@ else
         AlleCategorieen = CategorieRepo.GetAll();
     }
 
-    private bool IsAddOnGeselecteerd(int productId, int addOnId)
+    private bool GetAddOnState(int productId, int addOnId)
     {
-        return GeselecteerdeAddOns.TryGetValue((productId, addOnId), out var selected) && selected;
+        return GeselecteerdeAddOns.TryGetValue((productId, addOnId), out var value) && value;
     }
 
-    private void IsAddOnGeselecteerd(int productId, int addOnId, bool value)
+    private void SetAddOnState(int productId, int addOnId, bool value)
     {
         GeselecteerdeAddOns[(productId, addOnId)] = value;
     }
@@ -139,7 +140,7 @@ else
 
         await BestelState.BevestigEnBewaarProductAsync(BestellingRepo);
 
-        // Clear alleen geselecteerde add-ons van dit product
+        // Wis geselecteerde add-ons van dit product
         foreach (var key in GeselecteerdeAddOns.Keys.Where(k => k.productId == product.Id).ToList())
         {
             GeselecteerdeAddOns.Remove(key);
@@ -147,17 +148,6 @@ else
 
         StateHasChanged();
     }
-
-    private bool GetAddOnState(int productId, int addOnId)
-    {
-        return GeselecteerdeAddOns.TryGetValue((productId, addOnId), out var value) && value;
-    }
-
-    private void SetAddOnState(int productId, int addOnId, bool value)
-    {
-        GeselecteerdeAddOns[(productId, addOnId)] = value;
-    }
-
 
     private void VerwijderRegel(OrderRegel regel)
     {
