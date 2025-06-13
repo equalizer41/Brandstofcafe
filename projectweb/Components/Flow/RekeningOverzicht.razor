@@ -5,81 +5,81 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
-@if (!rekeningItems.Any())
+@if (!rekeningItems.Any() || rekeningItems.All(i => i.NogTeBetalen == 0))
 {
-    <p class="text-muted">Geen bestellingen voor deze tafel.</p>
+    <p class="text-muted">Alles is al betaald.</p>
 }
 else
 {
-@foreach (var groep in rekeningItems.GroupBy(i => i.RondeNr))
-{
-<details class="mb-3" open="@(!groep.All(i => i.NogTeBetalen == 0))">
-   <summary class="h5 text-primary">
-            Ronde @groep.Key @(groep.All(i => i.NogTeBetalen == 0) ? " (betaald)" : "")
-        </summary>
-    <table class="table table-bordered table-striped mt-2">
-        <thead>
-            <tr>
-                <th>Product</th>
-                <th>Besteld</th>
-                <th>Reeds betaald</th>
-                <th>Nog te betalen</th>
-                <th>Selectie (x)</th>
-                <th>Prijs</th>
-                <th>Bedrag (per regel)</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            @foreach (var item in groep)
-            {
-                if (!item.IsAddOn)
-                {
+    @foreach (var groep in rekeningItems.GroupBy(i => i.RondeNr))
+    {
+        <details class="mb-3" open="@(!groep.All(i => i.NogTeBetalen == 0))">
+            <summary class="h5 text-primary">
+                Ronde @groep.Key @(groep.All(i => i.NogTeBetalen == 0) ? " (betaald)" : "")
+            </summary>
+            <table class="table table-bordered table-striped mt-2">
+                <thead>
                     <tr>
-                        <td>@item.ProductNaam</td>
-                        <td>@item.Aantal</td>
-                        <td>@item.AantalBetaald</td>
-                        <td>@(item.Aantal - item.AantalBetaald)</td>
-                        <td><input type="number"
-                               class="form-control form-control-sm"
-                               min="0"
-                               max="@(item.Aantal - item.AantalBetaald)"
-                               value="@item.SelectieAantal"
-                               @oninput="e => BestelState.UpdateSelectieAantal(item, int.Parse(e.Value.ToString()))"
-/>
-                        </td>
-                        <td>@item.PrijsPerStuk.ToString("C")</td>
-                        <td>@item.Subtotaal.ToString("C")</td>
+                        <th>Product</th>
+                        <th>Besteld</th>
+                        <th>Reeds betaald</th>
+                        <th>Nog te betalen</th>
+                        <th>Selectie (x)</th>
+                        <th>Prijs</th>
+                        <th>Bedrag (per regel)</th>
                     </tr>
+                </thead>
 
-                    // Toon AddOns onder deze regel
-                    var addons = groep.Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId);
-                    foreach (var addon in addons)
+                <tbody>
+                    @foreach (var item in groep)
                     {
-                        <tr class="text-secondary table-sm">
-                            <td class="ps-5">↳ @addon.ProductNaam</td>
-                            <td>@addon.Aantal</td>
-                            <td>@addon.AantalBetaald</td>
-                            <td>@(addon.Aantal - addon.AantalBetaald)</td>
-                            <td><input type="number"
-                                   class="form-control form-control-sm"
-                                   disabled
-                                   value="@item.SelectieAantal" />
-                            </td>
-                            <td>@addon.PrijsPerStuk.ToString("C")</td>
-                            <td>@addon.Subtotaal.ToString("C")</td>
-                        </tr>
+                        if (!item.IsAddOn)
+                        {
+                            <tr>
+                                <td>@item.ProductNaam</td>
+                                <td>@item.Aantal</td>
+                                <td>@item.AantalBetaald</td>
+                                <td>@(item.Aantal - item.AantalBetaald)</td>
+                                <td><input type="number"
+                                    class="form-control form-control-sm"
+                                    min="0"
+                                    max="@(item.Aantal - item.AantalBetaald)"
+                                    value="@item.SelectieAantal"
+                                    @oninput="e => BestelState.UpdateSelectieAantal(item, int.Parse(e.Value.ToString()))"
+                                    />
+                                </td>
+                                <td>@item.PrijsPerStuk.ToString("C")</td>
+                                <td>@item.Subtotaal.ToString("C")</td>
+                            </tr>
+
+                            // Toon AddOns onder deze regel
+                            var addons = groep.Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId);
+                            foreach (var addon in addons)
+                            {
+                                <tr class="text-secondary table-sm">
+                                    <td class="ps-5">↳ @addon.ProductNaam</td>
+                                    <td>@addon.Aantal</td>
+                                    <td>@addon.AantalBetaald</td>
+                                    <td>@(addon.Aantal - addon.AantalBetaald)</td>
+                                    <td><input type="number"
+                                        class="form-control form-control-sm"
+                                        disabled
+                                        value="@item.SelectieAantal" />
+                                    </td>
+                                    <td>@addon.PrijsPerStuk.ToString("C")</td>
+                                    <td>@addon.Subtotaal.ToString("C")</td>
+                                </tr>
+                            }
+                        }
                     }
-                }
-            }
-    
-            <tr class="fw-bold table-light">
-                <td colspan="5">Totaal ronde @groep.Key:</td>
-                <td>@groep.Sum(i => i.NogTeBetalen).ToString("C")</td>
-            </tr>
-        </tbody>
-    </table>
-  </details>
+
+                    <tr class="fw-bold table-light">
+                        <td colspan="5">Totaal ronde @groep.Key:</td>
+                        <td>@groep.Sum(i => i.NogTeBetalen).ToString("C")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </details>
 
 
 
@@ -114,49 +114,64 @@ else
     }
 </div>
 
-       <button class="btn btn-success" @onclick="BestelState.SelecteerAlleProducten">Selecteer Alles</button>
+<button class="btn btn-success" @onclick="BestelState.SelecteerAlleProducten">Selecteer Alles</button>
 
-      <button class="btn btn-success" @onclick="BetaalGeselecteerde">Afrekenen</button>
+<button class="btn btn-success" @onclick="BetaalGeselecteerde">Afrekenen</button>
 
 
 
 @code {
-   private List<RekeningItem> rekeningItems => BestelState.RekeningItems;
+    private List<RekeningItem> rekeningItems => BestelState.RekeningItems;
     private Dictionary<int, int> betalingen = new(); // OrderRegelId → Aantal geselecteerd
 
-  
-        protected override void OnParametersSet()
+
+    protected override void OnParametersSet()
     {
-        if (BestelState.GeselecteerdeTafel != null)
+        // Niks doen als alles gereset is
+        if (BestelState.GeselecteerdeTafel == null)
         {
-            BestelState.RekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel.Id);
+            BestelState.RekeningItems.Clear();
+            return;
+        }
+
+        // Alleen herladen als nog iets in de actieve context zit
+        if (BestelState.ActieveBestelling != null)
+        {
+            BestelState.RekeningItems = BestellingRepo.HaalRekeningItemsStructuurVoorBestelling(BestelState.ActieveBestelling.Id);
         }
         else
         {
             BestelState.RekeningItems.Clear();
         }
-    }
+
+        }
 
     private async Task BetaalGeselecteerde()
+    {
+        await BestelState.BetaalGeselecteerdeAsync(BestellingRepo);
+
+        var bestelling = BestelState.ActieveBestelling;
+        if (bestelling != null)
         {
-            // Betaal geselecteerde regels (werkt via BestelState)
-            await BestelState.BetaalGeselecteerdeAsync(BestellingRepo);
+            await BestellingRepo.UpdateBetaalStatusAlsVolledigBetaaldAsync(bestelling.Id);
 
-            // Probeer de actieve bestelling op te halen en update de status indien volledig betaald
-            var bestelling = BestelState.ActieveBestelling;
-            if (bestelling != null)
+            var herladenBestelling = await BestellingRepo.HaalBestellingAsync(bestelling.Id);
+
+            // Reset direct als alles betaald
+            if (herladenBestelling?.IsBetaald == true)
             {
-                await BestellingRepo.UpdateBetaalStatusAlsVolledigBetaaldAsync(bestelling.Id);
-                  //  Herlaad de bestelling om de bijgewerkte IsBetaald waarde te krijgen
-                var herladenBestelling = await BestellingRepo.HaalBestellingAsync(bestelling.Id);
-                if (herladenBestelling?.IsBetaald == true)
-                {
-                    BestelState.Reset();
-                    Nav.NavigateTo("/");
-                }
+                BestelState.Reset();
+                Nav.NavigateTo("/", forceLoad: true);
+                return;
             }
 
-            }
+            // Alleen herladen als er nog iets te betalen is
+            BestelState.RekeningItems = BestellingRepo.HaalRekeningItemsStructuurVoorBestelling(bestelling.Id);
+            StateHasChanged();
+        }
+    }
+
+
         
  
     public void Dispose()

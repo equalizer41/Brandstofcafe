@@ -10,7 +10,6 @@ public class BestellingStateService
     public Ronde? ActieveRonde { get; private set; }
 
     // Navigatie en keuze
-    public Categorie? GeselecteerdeCategorie { get; set; }
     public Product? GeselecteerdProduct { get; set; }
 
     // Order-in-opbouw
@@ -44,14 +43,7 @@ public class BestellingStateService
     }
 
     // Bestelling en Ronde
-    public void StartNieuweBestelling(Bestelling bestelling, Ronde ronde)
-    {
-        ActieveBestelling = bestelling;
-        ActieveRonde = ronde;
-        OrderRegelsInOpbouw.Clear();
-        GeselecteerdeAddOns.Clear();
-        NotifyStateChanged();
-    }
+
 
     public void StartNieuweRonde(Ronde nieuweRonde)
     {
@@ -131,18 +123,24 @@ public class BestellingStateService
     {
         return RekeningItems
             .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
-            .GroupBy(i => new { i.ProductNaam, i.PrijsPerStuk })
-            .Select(g => (
-                ProductNaam: g.Key.ProductNaam,
-                TotaalAantal: g.Sum(x => x.SelectieAantal),
-                AddOnNamen: RekeningItems
-                    .Where(a => a.IsAddOn && g.Select(x => x.OrderRegelId).Contains(a.HoofdregelId ?? -1))
+            .Select(i => new
+            {
+                i.ProductNaam,
+                i.SelectieAantal,
+                AddOnNamen = RekeningItems
+                    .Where(a => a.IsAddOn && a.HoofdregelId == i.OrderRegelId)
                     .Select(a => a.ProductNaam)
-                    .Distinct()
                     .ToList()
+            })
+            .GroupBy(x => x.ProductNaam)
+            .Select(g => (
+                ProductNaam: g.Key,
+                TotaalAantal: g.Sum(x => x.SelectieAantal),
+                AddOnNamen: g.SelectMany(x => x.AddOnNamen.Select(a => $"{x.SelectieAantal} x {a}")).ToList()
             ))
             .ToList();
     }
+
 
     public async Task BetaalGeselecteerdeAsync(BestellingRepository repo)
     {
@@ -154,9 +152,24 @@ public class BestellingStateService
         {
             await repo.UpdateAantalBetaaldAsync(wijzigingen);
             RekeningItems = repo.HaalRekeningItemsStructuur(GeselecteerdeTafel.Id);
-            NotifyStateChanged(); // zodat je component dit ook meekrijgt
+
+            // Hier: reset selectievelden
+            foreach (var item in RekeningItems)
+            {
+                item.SelectieAantal = 0;
+            }
+
+            // Actieve bestelling updaten indien nodig
+            if (ActieveBestelling != null)
+            {
+                ActieveBestelling = await repo.HaalBestellingAsync(ActieveBestelling.Id);
+            }
+
+            NotifyStateChanged();
         }
+
     }
+
     public void UpdateSelectieAantal(RekeningItem hoofdregel, int nieuwAantal)
     {
         hoofdregel.SelectieAantal = nieuwAantal;
@@ -224,10 +237,12 @@ public class BestellingStateService
 
     public void Reset()
     {
+
         ClearContext();
         GeselecteerdeSectie = null;
         GeselecteerdeTafel = null;
         RekeningItems.Clear();
+        GeselecteerdeTeBetalenRegels.Clear(); 
         NotifyStateChanged();
     }
 

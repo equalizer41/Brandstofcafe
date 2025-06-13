@@ -366,27 +366,6 @@ ORDER BY o.Id, oa.Id;
             return nieuweRonde;
         }
 
-        public List<RekeningItem> HaalRekeningItemsVoorTafel(int tafelId)
-        {
-            using var conn = dbConnectionProvider.GetDatabaseConnection();
-
-                        var sql = @"
-            SELECT 
-                o.Id             AS OrderRegelId,
-                p.Naam           AS ProductNaam,
-                o.Aantal,
-                o.AantalBetaald,
-                p.Prijs          AS PrijsPerStuk
-            FROM Bestelling b
-            JOIN Ronde r ON r.BestellingId = b.Id
-            JOIN OrderRegel o ON o.RondeId = r.Id
-            JOIN Product p ON p.Id = o.ProductId
-            WHERE b.TafelId = @TafelId
-            ORDER BY r.RondNr, o.Id;
-            ";
-
-            return conn.Query<RekeningItem>(sql, new { TafelId = tafelId }).ToList();
-        }
 
         public List<RekeningItem> HaalRekeningItemsStructuur(int tafelId)
         {
@@ -517,6 +496,49 @@ ORDER BY o.Id, oa.Id;
             trans.Commit();
             return bestelling;
         }
+        public List<RekeningItem> HaalRekeningItemsStructuurVoorBestelling(int bestellingId)
+        {
+            var bestelling = HaalVolledigeBestelling(bestellingId);
+
+            var result = new List<RekeningItem>();
+
+            foreach (var ronde in bestelling.Rondes)
+            {
+                foreach (var regel in ronde.OrderRegels)
+                {
+                    result.Add(new RekeningItem
+                    {
+                        BestellingId = bestelling.Id,
+                        RondeNr = ronde.RondNr,
+                        OrderRegelId = regel.Id,
+                        ProductNaam = regel.Product?.Naam ?? "Onbekend",
+                        Aantal = regel.Aantal,
+                        AantalBetaald = regel.AantalBetaald,
+                        PrijsPerStuk = regel.Product?.Prijs ?? 0,
+                        IsAddOn = false,
+                        HoofdregelId = null
+                    });
+
+                    foreach (var addon in regel.AddOns)
+                    {
+                        result.Add(new RekeningItem
+                        {
+                            BestellingId = bestelling.Id,
+                            RondeNr = ronde.RondNr,
+                            OrderRegelId = addon.Id,
+                            ProductNaam = addon.ProductAddOn?.AddOn?.Naam ?? "Onbekend",
+                            Aantal = regel.Aantal,
+                            AantalBetaald = regel.AantalBetaald,
+                            PrijsPerStuk = addon.ProductAddOn?.Prijs ?? 0,
+                            IsAddOn = true,
+                            HoofdregelId = regel.Id
+                        });
+                    }
+                }
+            }
+
+            return result;
+        }
 
         public async Task VoegOrderRegelToeAsync(OrderRegel regel)
         {
@@ -551,6 +573,104 @@ ORDER BY o.Id, oa.Id;
             tx.Commit();
         }
 
+        public Bestelling? HaalVolledigeBestelling(int bestellingId)
+        {
+            using var connection = dbConnectionProvider.GetDatabaseConnection();
+
+            var sql = @"
+SELECT 
+    b.Id,
+    b.TafelId,
+    b.IsBetaald,
+
+    r.Id,
+    r.RondNr,
+    r.Tijdstip,
+    r.Status,
+    r.BestellingId,
+
+    o.Id,
+    o.Aantal,
+    o.AantalBetaald,
+    o.ProductId,
+    o.RondeId,
+    
+    p.Id,
+    p.Naam,
+    p.Prijs,
+
+    oa.Id,
+    oa.OrderRegelId,
+    oa.ProductAddOnId,
+
+    pa.Id,
+    pa.ProductId,
+    pa.AddOnId,
+    pa.Prijs,
+
+    a.Id,
+    a.Naam,
+    a.AddOnCategorieId
+
+FROM Bestelling b
+JOIN Ronde r             ON r.BestellingId = b.Id
+JOIN OrderRegel o        ON o.RondeId = r.Id
+JOIN Product p           ON p.Id = o.ProductId  
+LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
+LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
+LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
+
+WHERE b.Id = @BestellingId
+
+ORDER BY b.Id, r.Id, o.Id, oa.Id;
+";
+
+            Bestelling? bestelling = null;
+
+            var result = connection.Query<Bestelling, Ronde, OrderRegel, Product, OrderRegelAddOn, ProductAddOn, AddOn, Bestelling>(
+                sql,
+                (b, r, o, p, oa, pa, a) =>
+                {
+                    if (bestelling == null)
+                    {
+                        bestelling = b;
+                    }
+
+                    var bestaandeRonde = bestelling.Rondes.FirstOrDefault(x => x.Id == r.Id);
+                    if (bestaandeRonde == null)
+                    {
+                        bestaandeRonde = r;
+                        bestelling.Rondes.Add(bestaandeRonde);
+                    }
+
+                    var bestaandeRegel = bestaandeRonde.OrderRegels.FirstOrDefault(x => x.Id == o.Id);
+                    if (bestaandeRegel == null)
+                    {
+                        bestaandeRegel = o;
+                        bestaandeRegel.Product = p;
+                        bestaandeRegel.AddOns = new();
+                        bestaandeRonde.OrderRegels.Add(bestaandeRegel);
+                    }
+
+                    if (oa != null && oa.Id != 0)
+                    {
+                        if (pa != null)
+                            oa.ProductAddOn = pa;
+
+                        if (a != null && pa != null)
+                            pa.AddOn = a;
+
+                        bestaandeRegel.AddOns.Add(oa);
+                    }
+
+                    return bestelling;
+                },
+                param: new { BestellingId = bestellingId },
+                splitOn: "Id,Id,Id,Id,Id"
+            );
+
+            return bestelling;
+        }
 
     }
 }

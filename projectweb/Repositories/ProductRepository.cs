@@ -111,13 +111,5 @@ LEFT JOIN ProductAddOn pa ON pa.ProductId = p.Id AND pa.AddOnId = ao.Id
             return result.Distinct().ToList();
         }
 
-        public void Add(Product product)
-        {
-            const string sql = @"INSERT INTO Product (Naam, Prijs, CategorieId) 
-                                 VALUES (@Naam, @Prijs, @CategorieId)";
-
-            using var connection = dbConnectionProvider.GetDatabaseConnection();
-            connection.Execute(sql, product);
-        }
     }
 }

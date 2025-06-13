@@ -10,6 +10,13 @@
 
 @if (OrderRegels.Any())
 {
+    <div class="mt-4">
+        <button class="btn btn-success" @onclick="Afronden">Bestelling afronden</button>
+    </div>
+}
+
+@if (OrderRegels.Any())
+{
     <table class="table table-bordered">
         <thead>
             <tr>
@@ -28,7 +35,7 @@
                     <td>@product?.Naam</td>
                     <td>@regel.Aantal</td>
                     <td>@product?.Prijs.ToString("C")</td>
-                    <td>@(regel.Aantal* product?.Prijs ?? 0).ToString("C")</td>
+                    <td>@(regel.Aantal * product?.Prijs ?? 0)</td>
                     <td>
                         <button class="btn btn-sm btn-danger" @onclick="() => VerwijderRegel(regel)">🗑</button>
                     </td>
@@ -93,12 +100,7 @@ else
     </div>
 }
 
-@if (OrderRegels.Any())
-{
-    <div class="mt-4">
-        <button class="btn btn-success" @onclick="Afronden">Bestelling afronden</button>
-    </div>
-}
+
 
 @code {
     private List<Product> AlleProducten = new();

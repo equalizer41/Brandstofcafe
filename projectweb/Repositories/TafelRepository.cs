@@ -11,12 +11,6 @@ namespace projectweb.Repositories
         {
             this.dbConnectionProvider = dbConnectionProvider;
         }
-        public class TafelOverzicht
-        {
-            public Tafel Tafel { get; set; }
-            public Bestelling ActieveBestelling { get; set; }
-        }
-
         public List<Tafel> GetAll()
         {
             using var connection = dbConnectionProvider.GetDatabaseConnection();
