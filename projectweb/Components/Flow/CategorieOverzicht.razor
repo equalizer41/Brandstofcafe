@@ -1,0 +1,60 @@
+﻿@using projectweb.Repositories
+@inject ProductRepository ProductRepo
+@inject CategorieRepository CategorieRepo
+@inject BestellingStateService BestelState
+
+<h3>Selecteer producten</h3>
+
+@if (CategorieBoom == null)
+{
+    <p>Laden...</p>
+}
+else
+{
+    @foreach (var cat in CategorieBoom)
+    {
+        <CategorieNode Categorie="cat"
+                       Producten="AlleProducten"
+                       OnProductGekozen="VoegProductToe" />
+    }
+}
+
+@code {
+    private List<Product> AlleProducten = new();
+    private List<Categorie> AlleCategorieen = new();
+    private List<Categorie> CategorieBoom;
+
+    protected override void OnInitialized()
+    {
+        AlleCategorieen = CategorieRepo.GetAll();
+        AlleProducten = ProductRepo.GetAll();
+        CategorieBoom = BouwBoom(AlleCategorieen);
+    }
+
+    private List<Categorie> BouwBoom(List<Categorie> flatLijst)
+    {
+        var dict = flatLijst.ToDictionary(c => c.Id);
+        List<Categorie> topNiveau = new();
+
+        foreach (var cat in flatLijst)
+        {
+            if (cat.OuderCategorieId == null)
+            {
+                topNiveau.Add(cat);
+            }
+            else if (dict.TryGetValue(cat.OuderCategorieId.Value, out var ouder))
+            {
+                ouder.SubCategorieen.Add(cat);
+            }
+        }
+
+        return topNiveau;
+    }
+
+    private async Task VoegProductToe(Product product)
+    {
+        BestelState.SelecteerProduct(product);
+        await BestelState.BevestigEnBewaarProductAsync(null); // repo evt. meegeven
+        StateHasChanged();
+    }
+}
