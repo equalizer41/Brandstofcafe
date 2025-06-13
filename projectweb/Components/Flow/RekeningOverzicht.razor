@@ -2,13 +2,10 @@
 @using System
 @inject BestellingRepository BestellingRepo
 @inject BestellingStateService BestelState
+@inject NavigationManager Nav
 @implements IDisposable
 
-@if (rekeningItems == null)
-{
-    <p class="text-muted">Rekening wordt geladen...</p>
-}
-else if (!rekeningItems.Any())
+@if (!rekeningItems.Any())
 {
     <p class="text-muted">Geen bestellingen voor deze tafel.</p>
 }
@@ -16,20 +13,23 @@ else
 {
 @foreach (var groep in rekeningItems.GroupBy(i => i.RondeNr))
 {
-    <h5 class="mt-4 text-primary">Ronde @groep.Key</h5>
-
-    <table class="table table-bordered table-striped">
+<details class="mb-3" open="@(!groep.All(i => i.NogTeBetalen == 0))">
+   <summary class="h5 text-primary">
+            Ronde @groep.Key @(groep.All(i => i.NogTeBetalen == 0) ? " (betaald)" : "")
+        </summary>
+    <table class="table table-bordered table-striped mt-2">
         <thead>
             <tr>
                 <th>Product</th>
-                <th>Aantal</th>
-                <th>Betaald</th>
-                <th>Te betalen</th>
-                <th>SelectieAantal</th>
+                <th>Besteld</th>
+                <th>Reeds betaald</th>
+                <th>Nog te betalen</th>
+                <th>Selectie (x)</th>
                 <th>Prijs</th>
-                <th>Subtotaal</th>
+                <th>Bedrag (per regel)</th>
             </tr>
         </thead>
+
         <tbody>
             @foreach (var item in groep)
             {
@@ -40,7 +40,14 @@ else
                         <td>@item.Aantal</td>
                         <td>@item.AantalBetaald</td>
                         <td>@(item.Aantal - item.AantalBetaald)</td>
-                        <td><input type="number" class="form-control form-control-sm" min="0" max="@(item.Aantal - item.AantalBetaald)" @bind="item.SelectieAantal" /></td>
+                        <td><input type="number"
+                               class="form-control form-control-sm"
+                               min="0"
+                               max="@(item.Aantal - item.AantalBetaald)"
+                               value="@item.SelectieAantal"
+                               @oninput="e => BestelState.UpdateSelectieAantal(item, int.Parse(e.Value.ToString()))"
+/>
+                        </td>
                         <td>@item.PrijsPerStuk.ToString("C")</td>
                         <td>@item.Subtotaal.ToString("C")</td>
                     </tr>
@@ -54,64 +61,107 @@ else
                             <td>@addon.Aantal</td>
                             <td>@addon.AantalBetaald</td>
                             <td>@(addon.Aantal - addon.AantalBetaald)</td>
-                             <td><input type="number" class="form-control form-control-sm" min="0" max="@(item.Aantal - item.AantalBetaald)" @bind="item.SelectieAantal" /></td>
+                            <td><input type="number"
+                                   class="form-control form-control-sm"
+                                   disabled
+                                   value="@item.SelectieAantal" />
+                            </td>
                             <td>@addon.PrijsPerStuk.ToString("C")</td>
                             <td>@addon.Subtotaal.ToString("C")</td>
                         </tr>
                     }
                 }
             }
-
+    
             <tr class="fw-bold table-light">
                 <td colspan="5">Totaal ronde @groep.Key:</td>
                 <td>@groep.Sum(i => i.NogTeBetalen).ToString("C")</td>
             </tr>
         </tbody>
     </table>
-    <button class="btn btn-success" @onclick="BetaalGeselecteerde">Afrekenen</button>
+  </details>
 
+
+
+    }
 }
-}
+<div class="alert alert-info">
+    <p><strong>Totaal nog te betalen:</strong> @BestelState.BerekenTotaalNogTeBetalen().ToString("C")</p>
+    <p><strong>Subtotaal geselecteerd:</strong> @BestelState.BerekenGeselecteerdTotaal().ToString("C")</p>
+
+    @if (BestelState.BerekenGeselecteerdTotaal() > 0)
+    {
+        <div class="mt-3">
+            <h6>Geselecteerde producten:</h6>
+            <ul class="list-unstyled">
+                @foreach (var item in BestelState.GroepeerSelectiesVoorOverzicht())
+                {
+                    <li>
+                        <strong>@item.TotaalAantal x @item.ProductNaam</strong>
+                        @if (item.AddOnNamen.Any())
+                        {
+                            <ul>
+                                @foreach (var addon in item.AddOnNamen)
+                                {
+                                    <li class="text-secondary">↳ @item.TotaalAantal x @addon</li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</div>
+
+       <button class="btn btn-success" @onclick="BestelState.SelecteerAlleProducten">Selecteer Alles</button>
+
+      <button class="btn btn-success" @onclick="BetaalGeselecteerde">Afrekenen</button>
+
+
 
 @code {
-    private List<RekeningItem> rekeningItems = new();
+   private List<RekeningItem> rekeningItems => BestelState.RekeningItems;
     private Dictionary<int, int> betalingen = new(); // OrderRegelId → Aantal geselecteerd
 
   
-    protected override void OnParametersSet()
+        protected override void OnParametersSet()
     {
         if (BestelState.GeselecteerdeTafel != null)
         {
-            rekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel.Id);
+            BestelState.RekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel.Id);
         }
         else
         {
-            rekeningItems.Clear();
+            BestelState.RekeningItems.Clear();
         }
     }
 
-private async Task BetaalGeselecteerde()
-    {
-    var wijzigingen = rekeningItems
-        .Where(i => i.SelectieAantal > 0)
-        .ToDictionary(i => i.OrderRegelId, i => i.SelectieAantal);
+    private async Task BetaalGeselecteerde()
+        {
+            // Betaal geselecteerde regels (werkt via BestelState)
+            await BestelState.BetaalGeselecteerdeAsync(BestellingRepo);
 
-    if (wijzigingen.Any())
-    {
-        await BestellingRepo.UpdateAantalBetaaldAsync(wijzigingen);
-        rekeningItems = BestellingRepo.HaalRekeningItemsStructuur(BestelState.GeselecteerdeTafel!.Id);
-    }
-}
+            // Probeer de actieve bestelling op te halen en update de status indien volledig betaald
+            var bestelling = BestelState.ActieveBestelling;
+            if (bestelling != null)
+            {
+                await BestellingRepo.UpdateBetaalStatusAlsVolledigBetaaldAsync(bestelling.Id);
+                  //  Herlaad de bestelling om de bijgewerkte IsBetaald waarde te krijgen
+                var herladenBestelling = await BestellingRepo.HaalBestellingAsync(bestelling.Id);
+                if (herladenBestelling?.IsBetaald == true)
+                {
+                    BestelState.Reset();
+                    Nav.NavigateTo("/");
+                }
+            }
 
-    private void Herlaad()
-    {
-        rekeningItems = BestelState.RekeningItems;
-        InvokeAsync(StateHasChanged);
-    }
-
+            }
+        
+ 
     public void Dispose()
     {
-        BestelState.OnChange -= Herlaad;
+        BestelState.OnChange -= StateHasChanged;
     }
      
 }

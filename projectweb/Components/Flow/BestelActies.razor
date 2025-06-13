@@ -19,10 +19,20 @@
     private Ronde? actieveRonde => BestelState.ActieveRonde;
 
 
-    private void NieuweBestelling()
+    private async Task NieuweBestelling()
     {
+        if (BestelState.GeselecteerdeTafel is null)
+            return;
 
+        var bestelling = await BestellingRepo
+            .MaakNieuweBestellingMetRondeAsync(BestelState.GeselecteerdeTafel.Id);
+
+        var ronde = bestelling.Rondes.First();
+        BestelState.StartNieuweBestellingMetRonde(bestelling, ronde);
+
+        Nav.NavigateTo($"/Bestellen");
     }
+
     private void NieuweRonde()
     {
 

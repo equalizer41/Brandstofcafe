@@ -78,6 +78,8 @@ WHERE b.TafelId = @TafelId
       SELECT MAX(Id)
       FROM Bestelling
       WHERE TafelId = @TafelId
+        AND IsBetaald = 0
+
   )
 ORDER BY b.Id, r.Id, o.Id, oa.Id;
 ";
@@ -308,8 +310,7 @@ ORDER BY o.Id, oa.Id;
 
             // Haal nu de volledig opgebouwde ronde eruit
             var origineleRonde = rondeCache.Values.FirstOrDefault();
-            if (origineleRonde == null)
-                return null;
+         
 
             // STAP 2: Maak nieuwe ronde op basis van origineel
             var nieuweRonde = new Ronde
@@ -398,7 +399,7 @@ ORDER BY o.Id, oa.Id;
                 {
                     foreach (var regel in ronde.OrderRegels)
                     {
-                        // Hoofdproduct
+                        // Hoofdregel (product)
                         result.Add(new RekeningItem
                         {
                             BestellingId = bestelling.Id,
@@ -408,7 +409,8 @@ ORDER BY o.Id, oa.Id;
                             Aantal = regel.Aantal,
                             AantalBetaald = regel.AantalBetaald,
                             PrijsPerStuk = regel.Product?.Prijs ?? 0,
-                            IsAddOn = false
+                            IsAddOn = false,
+                            HoofdregelId = null
                         });
 
                         // AddOns
@@ -418,7 +420,7 @@ ORDER BY o.Id, oa.Id;
                             {
                                 BestellingId = bestelling.Id,
                                 RondeNr = ronde.RondNr,
-                                OrderRegelId = regel.Id,
+                                OrderRegelId = addon.Id, // eigen id
                                 ProductNaam = addon.ProductAddOn?.AddOn?.Naam ?? "Onbekend",
                                 Aantal = regel.Aantal,
                                 AantalBetaald = regel.AantalBetaald,
@@ -434,6 +436,34 @@ ORDER BY o.Id, oa.Id;
             return result;
         }
 
+        public async Task UpdateBetaalStatusAlsVolledigBetaaldAsync(int bestellingId)
+        {
+            using var conn = dbConnectionProvider.GetDatabaseConnection();
+
+            var onbetaaldAantal = await conn.ExecuteScalarAsync<int>(@"
+        SELECT COUNT(*) FROM OrderRegel
+        WHERE RondeId IN (
+            SELECT Id FROM Ronde WHERE BestellingId = @BestellingId
+        )
+        AND AantalBetaald < Aantal
+    ", new { BestellingId = bestellingId });
+
+            if (onbetaaldAantal == 0)
+            {
+                await conn.ExecuteAsync(
+                    "UPDATE Bestelling SET IsBetaald = 1 WHERE Id = @BestellingId",
+                    new { BestellingId = bestellingId });
+            }
+        }
+
+        public async Task<Bestelling?> HaalBestellingAsync(int bestellingId)
+        {
+            using var connection = dbConnectionProvider.GetDatabaseConnection();
+            return await connection.QueryFirstOrDefaultAsync<Bestelling>(
+                "SELECT * FROM Bestelling WHERE Id = @Id",
+                new { Id = bestellingId });
+        }
+
         public async Task UpdateAantalBetaaldAsync(Dictionary<int, int> wijzigingen)
         {
             using var connection = dbConnectionProvider.GetDatabaseConnection();
@@ -445,6 +475,82 @@ ORDER BY o.Id, oa.Id;
               WHERE Id = @Id",
                     new { Id = orderRegelId, Extra = extraAantal });
             }
-        }  
+        }
+
+        public async Task<Bestelling> MaakNieuweBestellingMetRondeAsync(int tafelId, int oberId = 1)
+        {
+            using var conn = dbConnectionProvider.GetDatabaseConnection();
+            conn.Open();
+            using var trans = conn.BeginTransaction();
+
+            var bestelling = new Bestelling
+            {
+                TafelId = tafelId,
+                Tijdstip = DateTime.Now,
+                OberID = oberId,
+                Rondes = new List<Ronde>()
+            };
+
+            bestelling.Id = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO Bestelling (TafelId, Tijdstip, OberID, IsBetaald) 
+          VALUES (@TafelId, @Tijdstip, @OberID, 0);
+          SELECT CAST(SCOPE_IDENTITY() as int);",
+                bestelling, trans);
+
+            var ronde = new Ronde
+            {
+                BestellingId = bestelling.Id,
+                Tijdstip = DateTime.Now,
+                Status = StatusEnum.Besteld,
+                RondNr = 1,
+                OrderRegels = new List<OrderRegel>()
+            };
+
+            ronde.Id = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO Ronde (BestellingId, Tijdstip, Status, RondNr)
+          VALUES (@BestellingId, @Tijdstip, @Status, @RondNr);
+          SELECT CAST(SCOPE_IDENTITY() as int);",
+                ronde, trans);
+
+            bestelling.Rondes.Add(ronde);
+
+            trans.Commit();
+            return bestelling;
+        }
+
+        public async Task VoegOrderRegelToeAsync(OrderRegel regel)
+        {
+            using var conn = dbConnectionProvider.GetDatabaseConnection();
+            conn.Open();
+            using var tx = conn.BeginTransaction();
+
+            // 1. Insert OrderRegel
+            regel.Id = await conn.ExecuteScalarAsync<int>(
+                @"INSERT INTO OrderRegel (ProductId, Aantal, AantalBetaald, RondeId)
+          VALUES (@ProductId, @Aantal, @AantalBetaald, @RondeId);
+          SELECT CAST(SCOPE_IDENTITY() as int);",
+                regel,
+                transaction: tx
+            );
+
+            // 2. Insert AddOns
+            foreach (var addon in regel.AddOns)
+            {
+                await conn.ExecuteAsync(
+                    @"INSERT INTO OrderRegelAddOn (OrderRegelId, ProductAddOnId)
+              VALUES (@OrderRegelId, @ProductAddOnId);",
+                    new
+                    {
+                        OrderRegelId = regel.Id,
+                        ProductAddOnId = addon.ProductAddOn.Id // of AddOnId afhankelijk van hoe het opgehaald wordt
+                    },
+                    transaction: tx
+                );
+            }
+
+            tx.Commit();
+        }
+
+
     }
 }

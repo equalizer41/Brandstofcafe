@@ -1,130 +1,172 @@
-﻿@using projectweb.Repositories
+﻿@page "/producten-toevoegen"
+@using projectweb.Repositories
 @inject ProductRepository ProductRepo
+@inject BestellingRepository BestellingRepo
 @inject CategorieRepository CategorieRepo
 @inject BestellingStateService BestelState
+@inject NavigationManager Nav
 
-@using projectweb.Components.Flow
+<h3 class="mb-4">Producten toevoegen aan ronde @BestelState.ActieveRonde?.RondNr</h3>
 
-
-<h3>Product Selector voor ronde @RondeNr</h3>
-
-@if (GekozenOrderRegels.Any())
+@if (OrderRegels.Any())
 {
-    <ul class="list-group mb-4">
-        @foreach (var regel in GekozenOrderRegels)
-        {
-            var product = AlleProducten.FirstOrDefault(p => p.Id == regel.ProductId);
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                @product?.Naam
-                <div>
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerlaagAantal(regel)">-</button>
-                    <span class="mx-2">@regel.Aantal</span>
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerhoogAantal(regel)">+</button>
-                    @if (regel.Aantal == 0)
-                    {
-                        <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => VerwijderOrderRegel(regel)">🗑</button>
-                    }
-                </div>
-            </li>
-        }
-    </ul>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Aantal</th>
+                <th>Prijs</th>
+                <th>Totaal</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var regel in OrderRegels)
+            {
+                var product = AlleProducten.FirstOrDefault(p => p.Id == regel.ProductId);
+                <tr>
+                    <td>@product?.Naam</td>
+                    <td>@regel.Aantal</td>
+                    <td>@product?.Prijs.ToString("C")</td>
+                    <td>@(regel.Aantal* product?.Prijs ?? 0).ToString("C")</td>
+                    <td><button class="btn btn-sm btn-danger" @onclick="() => VerwijderRegel(regel)">🗑</button></td>
+                </tr>
+                @foreach (var addon in regel.AddOns)
+                {
+                    <tr class="table-secondary">
+                        <td class="ps-4">↳ @addon.ProductAddOn?.AddOn?.Naam</td>
+                        <td>@regel.Aantal</td>
+                        <td>@addon.ProductAddOn?.Prijs.ToString("C")</td>
+                        <td>@(regel.Aantal* addon.ProductAddOn?.Prijs ?? 0).ToString("C")</td>
+                        <td></td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
 }
 else
 {
-    <p class="text-muted mb-4">Nog geen producten toegevoegd aan deze ronde.</p>
+    <p class="text-muted">Nog geen producten toegevoegd aan deze ronde.</p>
 }
 
-<!-- Modal trigger -->
-<button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#productModal">Product toevoegen</button>
+<hr />
 
-<!-- Modal -->
-<div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalLabel">Product toevoegen</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
-            </div>
-            <div class="modal-body">
-                @foreach (var subCategorie in AlleCategorieen.Where(c => c.OuderCategorieId != null))
-                {
-                    <CategorieLijst Categorie="subCategorie"
-                                        AlleProducten="AlleProducten"
-                                        TijdelijkeAantallen="TijdelijkeAantallen"
-                                        GeselecteerdeAddOns="GeselecteerdeAddOns"
-                                        OnToevoegen="VoegToeAanRonde" />
-                }
+@foreach (var categorie in AlleCategorieen.Where(c => c.OuderCategorieId != null))
+{
+    <div class="mb-4">
+        <h5>@categorie.Naam</h5>
+        <div class="row">
+            @foreach (var product in AlleProducten.Where(p => p.CategorieId == categorie.Id))
+            {
+                <div class="col-md-4 mb-2">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="card-title">@product.Naam</h6>
+                            <p class="card-text">€@product.Prijs</p>
+                            @foreach (var pac in product.AddOnCategorieen)
+                            {
+                                <label class="form-label d-block">@pac.AddOnCategorie.Naam</label>
+                                @foreach (var optie in pac.AddOnCategorie.Opties)
+                                {
+                                    <div class="form-check mb-1">
+                                     <input type="checkbox"
+                                       class="form-check-input"
+                                       @bind-value="GetAddOnState(product.Id, optie.Id)"
+                                       @bind-value:event="onchange"
+                                       @onchange="e => SetAddOnState(product.Id, optie.Id, (bool)e.Value!)" />
 
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
-            </div>
+
+                                        <label class="form-check-label">@optie.Naam</label>
+                                    </div>
+                                }
+                            }
+                            <button class="btn btn-sm btn-primary mt-2" @onclick="() => VoegProductToe(product)">
+                                Toevoegen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     </div>
-</div>
+}
 
-<div class="mt-4">
-    <a href="#">→ Terug naar boven</a>
-</div>
+@if (OrderRegels.Any())
+{
+    <div class="mt-4">
+        <button class="btn btn-success" @onclick="Afronden">Bestelling afronden</button>
+    </div>
+}
 
 @code {
-    [Parameter] public int RondeId { get; set; }
-    [Parameter] public int RondeNr { get; set; }
-
-    private List<OrderRegel> GekozenOrderRegels = new();
     private List<Product> AlleProducten = new();
     private List<Categorie> AlleCategorieen = new();
+    private List<OrderRegel> OrderRegels => BestelState.OrderRegelsInOpbouw;
 
-    private Dictionary<int, int> TijdelijkeAantallen = new();
-    private Dictionary<int, List<int>> GeselecteerdeAddOns = new();
+    // Per geselecteerd product-id + addon-id
+    private Dictionary<(int productId, int addOnId), bool> GeselecteerdeAddOns = new();
 
     protected override void OnInitialized()
     {
         AlleProducten = ProductRepo.GetAll();
-        AlleCategorieen = HaalCategorieënOp();
-
-        foreach (var product in AlleProducten)
-        {
-            TijdelijkeAantallen[product.Id] = 1;
-        }
+        AlleCategorieen = CategorieRepo.GetAll();
     }
 
-    private void VoegToeAanRonde(Product p)
+    private bool IsAddOnGeselecteerd(int productId, int addOnId)
     {
-        int aantal = TijdelijkeAantallen.TryGetValue(p.Id, out var a) ? a : 1;
-        if (aantal < 1) return;
-
-        var bestaande = GekozenOrderRegels.FirstOrDefault(r => r.ProductId == p.Id);
-        var addOnIds = GeselecteerdeAddOns.TryGetValue(p.Id, out var lijst) ? lijst : new List<int>();
-
-        if (bestaande != null)
-        {
-            bestaande.Aantal += aantal;
-        }
-        else
-        {
-            GekozenOrderRegels.Add(new OrderRegel
-            {
-                ProductId = p.Id,
-                Aantal = aantal,
-                AantalBetaald = 0,
-                RondeId = RondeId,
-                AddOns = addOnIds.Select(id => new OrderRegelAddOn
-                {
-                    ProductAddOn = new ProductAddOn { AddOn = new AddOn { Id = id } }
-                }).ToList()
-            });
-        }
-
-        TijdelijkeAantallen[p.Id] = 1;
-        GeselecteerdeAddOns[p.Id] = new();
+        return GeselecteerdeAddOns.TryGetValue((productId, addOnId), out var selected) && selected;
     }
 
-    private void VerhoogAantal(OrderRegel regel) => regel.Aantal++;
-    private void VerlaagAantal(OrderRegel regel) { if (regel.Aantal > 0) regel.Aantal--; }
-    private void VerwijderOrderRegel(OrderRegel regel) => GekozenOrderRegels.Remove(regel);
+    private void IsAddOnGeselecteerd(int productId, int addOnId, bool value)
+    {
+        GeselecteerdeAddOns[(productId, addOnId)] = value;
+    }
+
+    private async Task VoegProductToe(Product product)
+    {
+        BestelState.SelecteerProduct(product);
+
+        foreach (var ((prodId, addOnId), geselecteerd) in GeselecteerdeAddOns)
+        {
+            if (prodId == product.Id && geselecteerd)
+            {
+                var pa = product.AddOns.FirstOrDefault(p => p.AddOnId == addOnId);
+                if (pa != null)
+                    BestelState.SelecteerAddOn(pa);
+            }
+        }
+
+        await BestelState.BevestigEnBewaarProductAsync(BestellingRepo);
+
+        // Clear alleen geselecteerde add-ons van dit product
+        foreach (var key in GeselecteerdeAddOns.Keys.Where(k => k.productId == product.Id).ToList())
+        {
+            GeselecteerdeAddOns.Remove(key);
+        }
+
+        StateHasChanged();
+    }
+
+    private bool GetAddOnState(int productId, int addOnId)
+    {
+        return GeselecteerdeAddOns.TryGetValue((productId, addOnId), out var value) && value;
+    }
+
+    private void SetAddOnState(int productId, int addOnId, bool value)
+    {
+        GeselecteerdeAddOns[(productId, addOnId)] = value;
+    }
 
 
-    private List<Categorie> HaalCategorieënOp() => CategorieRepo.GetAll();
+    private void VerwijderRegel(OrderRegel regel)
+    {
+        BestelState.OrderRegelsInOpbouw.Remove(regel);
+    }
 
+    private void Afronden()
+    {
+        BestelState.Reset();
+        Nav.NavigateTo("/");
+    }
 }

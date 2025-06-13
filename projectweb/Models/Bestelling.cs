@@ -10,21 +10,4 @@ public class Bestelling
 
     public bool IsBetaald { get; private set; }
   
-    public bool IsVolledigBetaald()
-    {
-        foreach (var ronde in Rondes)
-        {
-            foreach (var or in ronde.OrderRegels)
-            {
-                if (or.AantalBetaald < or.Aantal)
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    public void UpdateBetaalStatus()
-    {
-        IsBetaald = IsVolledigBetaald();
-    }
 }

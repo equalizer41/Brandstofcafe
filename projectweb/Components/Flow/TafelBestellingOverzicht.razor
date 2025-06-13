@@ -2,6 +2,7 @@
 @using projectweb.Repositories
 @inject BestellingRepository BestellingRepo
 @inject BestellingStateService BestelState
+
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -104,6 +105,8 @@
 else
 {
     <p class="text-muted">Geen bestellingen gevonden.</p>
+
+     <BestelActies />  
 }
 
 @code {

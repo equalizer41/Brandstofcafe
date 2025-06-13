@@ -1,0 +1,17 @@
+﻿@page "/Bestellen"
+@using projectweb.Components.Flow
+@using projectweb.Repositories
+@inject BestellingStateService BestelState;
+@rendermode InteractiveServer
+
+
+
+<h3>Ronde @BestelState.ActieveRonde?.RondNr</h3>
+@if (BestelState.ActieveRonde is null)
+{
+    <p class="text-danger">Er is geen actieve ronde geselecteerd.</p>
+}
+else
+{
+ <ProductLijst />  
+}

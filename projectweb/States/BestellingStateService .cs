@@ -14,12 +14,13 @@ public class BestellingStateService
     public Product? GeselecteerdProduct { get; set; }
 
     // Order-in-opbouw
-    public List<AddOn> GeselecteerdeAddOns { get; private set; } = new();
+    public List<ProductAddOn> GeselecteerdeAddOns { get; private set; } = new();
     public List<OrderRegel> OrderRegelsInOpbouw { get; private set; } = new();
 
     // Betaling
     public List<Bestelling> TeBetalenBestellingen { get; private set; } = new();
-    public List<RekeningItem> RekeningItems { get; private set; } = new();
+    public List<RekeningItem> RekeningItems { get;  set; } = new();
+    public List<OrderRegel> GeselecteerdeTeBetalenRegels { get; private set; } = new();
 
 
     public event Action? OnChange;
@@ -67,82 +68,141 @@ public class BestellingStateService
         NotifyStateChanged();
     }
 
-    public void SelecteerAddOn(AddOn addon)
+    // In BestelStateService.cs
+    public void SelecteerAddOn(ProductAddOn productAddOn)
     {
-        if (!GeselecteerdeAddOns.Any(a => a.Id == addon.Id))
-            GeselecteerdeAddOns.Add(addon);
+        GeselecteerdeAddOns.Add(productAddOn);
         NotifyStateChanged();
     }
+
 
     public void VerwijderAddOn(AddOn addon)
     {
-        GeselecteerdeAddOns.RemoveAll(a => a.Id == addon.Id);
+        GeselecteerdeAddOns.RemoveAll(pa => pa.AddOn.Id == addon.Id);
         NotifyStateChanged();
     }
 
-    // Orderregel aanmaken
-    public void VoegOrderRegelToe(int aantal)
+    public async Task BevestigEnBewaarProductAsync(BestellingRepository repo)
     {
         if (GeselecteerdProduct is null || ActieveRonde is null)
             return;
 
         var regel = new OrderRegel
         {
-            Aantal = aantal,
-            AantalBetaald = 0,
             ProductId = GeselecteerdProduct.Id,
             RondeId = ActieveRonde.Id,
-            AddOns = GeselecteerdeAddOns.Select(addon => new OrderRegelAddOn
+            Aantal = 1,
+            AantalBetaald = 0,
+
+            AddOns = GeselecteerdeAddOns.Select(pa => new OrderRegelAddOn
             {
-                ProductAddOn = GeselecteerdProduct.AddOns.First(pa => pa.AddOnId == addon.Id),
-                ProductAddOnId = addon.Id
+                ProductAddOn = pa
             }).ToList()
         };
 
+        await repo.VoegOrderRegelToeAsync(regel);
+
         OrderRegelsInOpbouw.Add(regel);
+        GeselecteerdProduct = null;
         GeselecteerdeAddOns.Clear();
         NotifyStateChanged();
     }
 
+
+
     // Betalingsbeheer
-    // rekeningsitems
-
-    // Voor gedeeltelijke betaling
-    public List<OrderRegel> GeselecteerdeTeBetalenRegels { get; private set; } = new();
-
-    public void SelecteerOrderRegelVoorBetaling(OrderRegel regel)
+    public void SelecteerAlleProducten()
     {
-        if (!GeselecteerdeTeBetalenRegels.Contains(regel))
+        foreach (var item in RekeningItems.Where(i => i.NogTeBetalen > 0))
         {
-            GeselecteerdeTeBetalenRegels.Add(regel);
-            NotifyStateChanged();
+            item.SelectieAantal = item.Aantal - item.AantalBetaald;
+
+            foreach (var addon in RekeningItems
+                .Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId))
+            {
+                addon.SelectieAantal = item.SelectieAantal;
+            }
+        }
+
+        NotifyStateChanged();
+    }
+
+    public List<(string ProductNaam, int TotaalAantal, List<string> AddOnNamen)> GroepeerSelectiesVoorOverzicht()
+    {
+        return RekeningItems
+            .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
+            .GroupBy(i => new { i.ProductNaam, i.PrijsPerStuk })
+            .Select(g => (
+                ProductNaam: g.Key.ProductNaam,
+                TotaalAantal: g.Sum(x => x.SelectieAantal),
+                AddOnNamen: RekeningItems
+                    .Where(a => a.IsAddOn && g.Select(x => x.OrderRegelId).Contains(a.HoofdregelId ?? -1))
+                    .Select(a => a.ProductNaam)
+                    .Distinct()
+                    .ToList()
+            ))
+            .ToList();
+    }
+
+    public async Task BetaalGeselecteerdeAsync(BestellingRepository repo)
+    {
+        var wijzigingen = RekeningItems
+            .Where(i => i.SelectieAantal > 0)
+            .ToDictionary(i => i.OrderRegelId, i => i.SelectieAantal);
+
+        if (wijzigingen.Any() && GeselecteerdeTafel != null)
+        {
+            await repo.UpdateAantalBetaaldAsync(wijzigingen);
+            RekeningItems = repo.HaalRekeningItemsStructuur(GeselecteerdeTafel.Id);
+            NotifyStateChanged(); // zodat je component dit ook meekrijgt
         }
     }
-
-    public void VerwijderOrderRegelVanBetaling(OrderRegel regel)
+    public void UpdateSelectieAantal(RekeningItem hoofdregel, int nieuwAantal)
     {
-        GeselecteerdeTeBetalenRegels.Remove(regel);
+        hoofdregel.SelectieAantal = nieuwAantal;
+
+        foreach (var addon in RekeningItems
+            .Where(a => a.IsAddOn && a.HoofdregelId == hoofdregel.OrderRegelId))
+        {
+            addon.SelectieAantal = nieuwAantal;
+        }
+
         NotifyStateChanged();
     }
 
-    public void ClearGeselecteerdeRegels()
+    public decimal BerekenGeselecteerdTotaal()
     {
-        GeselecteerdeTeBetalenRegels.Clear();
-        NotifyStateChanged();
+
+        return RekeningItems
+            .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
+            .Sum(item =>
+                item.SelectieAantal * item.TotaalPrijsInclusiefAddOns(RekeningItems)
+            );
+
     }
 
-    public void VoegTeBetalenToe(Bestelling bestelling)
+    public List<(RekeningItem Hoofdregel, List<RekeningItem> AddOns)> HaalGeselecteerdeProductenMetAddOns()
     {
-        if (!TeBetalenBestellingen.Contains(bestelling))
-            TeBetalenBestellingen.Add(bestelling);
-        NotifyStateChanged();
+        return RekeningItems
+            .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
+            .Select(item => (
+                item,
+                RekeningItems
+                    .Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId)
+                    .ToList()
+            ))
+            .ToList();
     }
 
-    public void ClearTeBetalen()
+    public decimal BerekenTotaalNogTeBetalen()
     {
-        TeBetalenBestellingen.Clear();
-        NotifyStateChanged();
+        return RekeningItems
+            .Where(i => !i.IsAddOn)
+            .Sum(i =>
+                (i.Aantal - i.AantalBetaald) * i.TotaalPrijsInclusiefAddOns(RekeningItems)
+            );
     }
+
     public void StartNieuweBestellingMetRonde(Bestelling bestelling, Ronde ronde)
     {
         ActieveBestelling = bestelling;
@@ -162,8 +222,14 @@ public class BestellingStateService
         TeBetalenBestellingen.Clear();
     }
 
-
-  
+    public void Reset()
+    {
+        ClearContext();
+        GeselecteerdeSectie = null;
+        GeselecteerdeTafel = null;
+        RekeningItems.Clear();
+        NotifyStateChanged();
+    }
 
     private void NotifyStateChanged() => OnChange?.Invoke();
 }

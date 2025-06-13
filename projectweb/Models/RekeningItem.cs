@@ -15,4 +15,16 @@
 
     public decimal Subtotaal => Aantal * PrijsPerStuk;
     public decimal NogTeBetalen => (Aantal - AantalBetaald) * PrijsPerStuk;
+
+    public decimal TotaalPrijsInclusiefAddOns(List<RekeningItem> items)
+    {
+        if (IsAddOn) return 0;
+
+        var addons = items
+            .Where(a => a.IsAddOn && a.HoofdregelId == OrderRegelId)
+            .Sum(a => a.PrijsPerStuk);
+
+        return PrijsPerStuk + addons;
+    }
+
 }

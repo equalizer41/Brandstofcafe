@@ -1,4 +1,7 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject BestellingStateService BestelState
+
 
 <div class="page">
     <div class="sidebar">
@@ -21,3 +24,25 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += HandleNavigation;
+    }
+
+    private void HandleNavigation(object? sender, LocationChangedEventArgs e)
+    {
+        var pad = Nav.ToBaseRelativePath(e.Location).TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(pad))
+        {
+            BestelState.Reset();
+        }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= HandleNavigation;
+    }
+}
+
