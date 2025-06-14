@@ -36,24 +36,29 @@
     // Selecteer de eerste waarde uit de lijst Secties en zet deze door naar de BestelState voor het bijhouden van de sectiekeuze -> Daarna kan TafelLijst worden geladen
     private async Task SelecteerSectie(int id)
     {
-        var sectie = Secties.FirstOrDefault(s => s.Id == id);
+        // Haal de sectie op via de repository
+        var geselecteerdeSectie = SectieRepo.GetById(id);
 
-        if (sectie == null)
+        if (geselecteerdeSectie == null)
             return;
 
         // Toggle : deselecteer het component als hij al actief is
-        if (BestelState.GeselecteerdeSectie?.Id == sectie.Id)
+        if (BestelState.GeselecteerdeSectie?.Id == geselecteerdeSectie.Id)
         {
             BestelState.SelecteerSectie(null); // maakt de selectie leeg
         }
         else
         {
-            BestelState.SelecteerSectie(sectie);
+            BestelState.SelecteerSectie(geselecteerdeSectie); // Selecteer de nieuwe sectie
         }
+
+        // Informeer de parent component over de selectie
         await TafelSectieIsGeselecteerd.InvokeAsync(id);
 
         StateHasChanged();
     }
+
+
     // Hiermee worden wijzigingen in de bestelstate doorgegeven
     protected override void OnInitialized()
     {

@@ -19,5 +19,13 @@ namespace projectweb.Repositories
             return connection.Query<Sectie>("SELECT * FROM Sectie").ToList();
         }
 
+        public Sectie GetById(int id)
+        {
+            using var connection = dbConnectionProvider.GetDatabaseConnection();
+
+            var sql = "SELECT * FROM Sectie WHERE Id = @Id";
+            return connection.QueryFirstOrDefault<Sectie>(sql, new { Id = id });
+        }
+
     }
 }

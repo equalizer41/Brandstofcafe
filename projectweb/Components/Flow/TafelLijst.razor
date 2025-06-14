@@ -35,64 +35,66 @@
     // Plaatst alle Tafels waarbij de sectieID gelijk is met de sectieid uit de bestelstate
     protected override void OnInitialized()
     {
-        Console.WriteLine("[DEBUG] TafelLijst - OnInitialized aangeroepen");
-        Console.WriteLine($"[DEBUG] TafelLijst - GeselecteerdeSectieid heeft waarde: {BestelState.GeselecteerdeSectie?.Id}");
-        Tafels = TafelRepo.GetAll()
-                          .Where(t => t.SectieId == BestelState.GeselecteerdeSectie?.Id)
-                          .ToList();
-        Console.WriteLine($"[DEBUG] Tafels geladen: {Tafels.Count}");
+        // Plaatst alleen Tafels die overeenkomen met de geselecteerde SectieId
+        if (BestelState.GeselecteerdeSectie != null)
+        {
+            Tafels = TafelRepo.GetAll(BestelState.GeselecteerdeSectie.Id);
+        }
 
-        // Roept HerlaadTafels aan zodat de tafels tabel weer wordt vernieuwd als een nieuwe sectie wordt gekozen
         BestelState.OnChange += HerlaadTafel;
     }
 
-    // Herlaad alle Tafels waarbij de sectieID gelijk is met de sectieid uit de bestelstate
-
+    // Herlaad Tafels met de nieuwe SectieId
     private void HerlaadTafel()
     {
-        Tafels = TafelRepo.GetAll()
-                        .Where(t => t.SectieId == BestelState.GeselecteerdeSectie?.Id)
-                        .ToList();
-       
-        BestelState.OnChange += StateHasChanged;
-
-    }
-
-    // Geeft de geselecteerde tafel door aan de bestelstate -> daarna kan tafelbesteloverzicht worden geladen
-    private async Task SelecteerTafel(int id)
-    {
-        var tafel = Tafels.FirstOrDefault(t => t.Id == id);
-
-        if (BestelState.GeselecteerdeTafel?.Id == tafel?.Id)
+        if (BestelState.GeselecteerdeSectie != null)
         {
-            BestelState.SelecteerTafel(null);
-        }
-        else if (tafel is not null)
-        {
-            BestelState.SelecteerTafel(tafel);
-
-            // Bestelling + ronde selecteren
-            var bestellingen = BestellingRepo.OpenBestellingBijTafelID(tafel.Id);
-            var laatsteBestelling = bestellingen.OrderByDescending(b => b.Id).FirstOrDefault();
-
-            if (laatsteBestelling is not null)
-            {
-                var laatsteRonde = laatsteBestelling.Rondes
-                    .OrderByDescending(r => r.RondNr)
-                    .FirstOrDefault();
-
-                if (laatsteRonde is not null)
-                {
-                    BestelState.StartNieuweBestellingMetRonde(laatsteBestelling, laatsteRonde);
-
-                    // Open/sluit de collapse van deze bestelling
-                    await JS.InvokeVoidAsync("sluitAlleCollapses");            
-                }
-            }
+            Tafels = TafelRepo.GetAll(BestelState.GeselecteerdeSectie.Id);
         }
 
         StateHasChanged();
     }
+
+
+    private async Task SelecteerTafel(int id)
+    {
+        // Haal de geselecteerde tafel direct op via de repository
+        var geselecteerdeTafel = TafelRepo.GetById(id);
+
+        if (geselecteerdeTafel == null)
+            return;
+
+        // Toggle: deselecteer de tafel als deze al geselecteerd is
+        if (BestelState.GeselecteerdeTafel?.Id == geselecteerdeTafel.Id)
+        {
+            BestelState.SelecteerTafel(null); // Maak de selectie leeg
+        }
+        else
+        {
+            BestelState.SelecteerTafel(geselecteerdeTafel); // Selecteer de nieuwe tafel
+
+            // Haal de laatste bestelling en ronde op via de repository
+            var laatsteBestelling = BestellingRepo.GetLaatsteBestellingBijTafelID(geselecteerdeTafel.Id);
+
+            if (laatsteBestelling != null)
+            {
+                var laatsteRonde = laatsteBestelling.Rondes.FirstOrDefault();  // De laatste ronde ophalen
+
+                if (laatsteRonde != null)
+                {
+                    // Start een nieuwe bestelling met de laatste ronde
+                    BestelState.StartNieuweBestellingMetRonde(laatsteBestelling, laatsteRonde);
+
+                    // Open/sluit de collapse
+                    await JS.InvokeVoidAsync("sluitAlleCollapses");
+                }
+            }
+        }
+        StateHasChanged();
+    }
+
+
+
     public void Dispose()
     {
         BestelState.OnChange -= HerlaadTafel;

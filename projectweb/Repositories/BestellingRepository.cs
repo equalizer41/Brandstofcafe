@@ -14,7 +14,6 @@ namespace projectweb.Repositories
             this.dbConnectionProvider = dbConnectionProvider;
         }
 
-
         public List<Bestelling> OpenBestellingBijTafelID(int tafelId)
         {
             using var connection = dbConnectionProvider.GetDatabaseConnection();
@@ -123,6 +122,76 @@ namespace projectweb.Repositories
 
             return result.Distinct().ToList();
         }
+
+        public Bestelling GetLaatsteBestellingBijTafelID(int tafelId)
+        {
+            using var connection = dbConnectionProvider.GetDatabaseConnection();
+
+            var sql = @"
+        SELECT TOP 1
+            b.Id AS BestellingId,
+            b.TafelId,
+            b.IsBetaald,
+            r.Id AS RondeId,
+            r.RondNr,
+            r.Tijdstip,
+            r.Status,
+            o.Id AS OrderRegelId,
+            o.Aantal,
+            o.AantalBetaald,
+            o.ProductId,
+            o.RondeId AS OrderRondeId,
+            p.Id AS ProductId,
+            p.Naam AS ProductNaam,
+            p.Prijs,
+            oa.Id AS OrderRegelAddOnId,
+            pa.Id AS ProductAddOnId,
+            pa.AddOnId,
+            a.Id AS AddOnId,
+            a.Naam AS AddOnNaam
+        FROM Bestelling b
+        JOIN Ronde r ON r.BestellingId = b.Id
+        JOIN OrderRegel o ON o.RondeId = r.Id
+        JOIN Product p ON p.Id = o.ProductId
+        LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
+        LEFT JOIN ProductAddOn pa ON pa.Id = oa.ProductAddOnId
+        LEFT JOIN AddOn a ON a.Id = pa.AddOnId
+        WHERE b.TafelId = @TafelId
+          AND b.Id = (
+              SELECT MAX(Id)
+              FROM Bestelling
+              WHERE TafelId = @TafelId
+                AND IsBetaald = 0
+          )
+        ORDER BY r.RondNr DESC
+        ";
+
+            var bestelling = connection.Query<Bestelling, Ronde, OrderRegel, Product, OrderRegelAddOn, ProductAddOn, AddOn, Bestelling>(
+                sql,
+                (bestelling, ronde, orderRegel, product, orderRegelAddOn, productAddOn, addOn) =>
+                {
+                    bestelling.Rondes = new List<Ronde> { ronde };
+                    ronde.OrderRegels = new List<OrderRegel> { orderRegel };
+                    orderRegel.Product = product;
+
+                    if (orderRegelAddOn != null)
+                    {
+                        orderRegel.AddOns = new List<OrderRegelAddOn> { orderRegelAddOn };
+                        orderRegelAddOn.ProductAddOn = productAddOn;
+
+                        if (productAddOn != null)
+                            productAddOn.AddOn = addOn;
+                    }
+
+                    return bestelling;
+                },
+                new { TafelId = tafelId },
+                splitOn: "BestellingId,RondeId,OrderRegelId,ProductId,OrderRegelAddOnId,ProductAddOnId,AddOnId"
+            ).FirstOrDefault();
+
+            return bestelling;
+        }
+
 
         public List<Bestelling> OpenAlleBestellingBijTafelID(int tafelId)
         {
