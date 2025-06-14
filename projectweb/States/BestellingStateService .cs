@@ -60,6 +60,25 @@ public class BestellingStateService
         NotifyStateChanged();
     }
 
+    public void UpdateAantalOrderRegel(OrderRegel regel, int nieuwAantal)
+    {
+        if (nieuwAantal > 0)
+        {
+            // Zoek de regel in de lijst van OrderRegelsInOpbouw
+            var orderRegel = OrderRegelsInOpbouw.FirstOrDefault(r => r.ProductId == regel.ProductId &&
+                                                                    r.AddOns.SequenceEqual(regel.AddOns));
+
+            if (orderRegel != null)
+            {
+                // Werk het aantal bij van de juiste orderregel
+                orderRegel.Aantal = nieuwAantal;
+            }
+
+            NotifyStateChanged();  // Update de UI
+        }
+    }
+
+
     // In BestelStateService.cs
     public void SelecteerAddOn(ProductAddOn productAddOn)
     {
@@ -76,39 +95,51 @@ public class BestellingStateService
         }
     }
 
-
-
-
-    public void VerwijderAddOn(AddOn addon)
-    {
-        GeselecteerdeAddOns.RemoveAll(pa => pa.AddOn.Id == addon.Id);
-        NotifyStateChanged();
-    }
-
     public async Task BevestigEnBewaarProductAsync(BestellingRepository repo, int aantal)
     {
         if (GeselecteerdProduct is null || ActieveRonde is null)
             return;
 
-        var regel = new OrderRegel
-        {
-            ProductId = GeselecteerdProduct.Id,
-            RondeId = ActieveRonde.Id,
-            Aantal = aantal,
-            AantalBetaald = 0,
-            AddOns = GeselecteerdeAddOns.Select(pa => new OrderRegelAddOn
-            {
-                ProductAddOn = pa
-            }).ToList()
-        };
+        // Zoek of er al een OrderRegel voor dit product bestaat
+        var regel = OrderRegelsInOpbouw.FirstOrDefault(r => r.ProductId == GeselecteerdProduct.Id);
 
+        if (regel != null)
+        {
+            // Werk het aantal bij in de bestaande regel
+            regel.Aantal = aantal;
+        }
+        else
+        {
+            // Maak een nieuwe OrderRegel als deze nog niet bestaat
+            regel = new OrderRegel
+            {
+                ProductId = GeselecteerdProduct.Id,
+                RondeId = ActieveRonde.Id,
+                Aantal = aantal,
+                AantalBetaald = 0,
+                AddOns = GeselecteerdeAddOns.Select(pa => new OrderRegelAddOn
+                {
+                    ProductAddOn = pa
+                }).ToList()
+            };
+        }
+
+        // Voeg de orderregel toe aan de database via de repository
         await repo.VoegOrderRegelToeAsync(regel);
 
-        OrderRegelsInOpbouw.Add(regel);
+        // Voeg de regel toe aan de in-memory lijst
+        if (!OrderRegelsInOpbouw.Contains(regel))
+        {
+            OrderRegelsInOpbouw.Add(regel);
+        }
+
+        // Reset het geselecteerde product en add-ons
         GeselecteerdProduct = null;
         GeselecteerdeAddOns.Clear();
-        NotifyStateChanged();
+
+        NotifyStateChanged();  // Zorg ervoor dat de UI wordt bijgewerkt
     }
+
 
 
 

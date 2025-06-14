@@ -270,7 +270,7 @@ ORDER BY o.Id, oa.Id;
 
             var rondeCache = new Dictionary<int, Ronde>();
 
-            // ❗️ Eerst uitvoeren om cache te vullen
+            //  Eerst uitvoeren om cache te vullen
             await connection.QueryAsync<Ronde, OrderRegel, Product, OrderRegelAddOn, ProductAddOn, AddOn, Ronde>(
                 sql,
                 (ronde, orderRegel, product, orderRegelAddOn, productAddOn, addOn) =>
@@ -539,6 +539,48 @@ ORDER BY o.Id, oa.Id;
 
             return result;
         }
+        public async Task<Ronde> VoegNieuweRondeToeAsync(int bestellingId)
+        {
+            // Verkrijg de laatste ronde van de bestelling
+            using var conn = dbConnectionProvider.GetDatabaseConnection();
+            conn.Open();
+
+            // Haal de laatste ronde op om het ronde nummer te verhogen
+            var sqlLastRonde = @"
+        SELECT TOP 1 * 
+        FROM Ronde 
+        WHERE BestellingId = @BestellingId 
+        ORDER BY RondNr DESC";
+
+            var laatsteRonde = await conn.QueryFirstOrDefaultAsync<Ronde>(sqlLastRonde, new { BestellingId = bestellingId });
+
+            if (laatsteRonde == null)
+            {
+                throw new InvalidOperationException("Er is geen bestaande ronde voor deze bestelling.");
+            }
+
+            // Verkrijg het nieuwe ronde nummer
+            int nieuwRondeNummer = laatsteRonde.RondNr + 1;
+
+            // Maak de nieuwe ronde
+            var nieuweRonde = new Ronde
+            {
+                RondNr = nieuwRondeNummer,
+                BestellingId = bestellingId,
+                Tijdstip = DateTime.Now,
+                Status = StatusEnum.Besteld // Afhankelijk van je logica
+            };
+
+            // Insert de nieuwe ronde in de database
+            var sqlInsertRonde = @"
+        INSERT INTO Ronde (RondNr, Tijdstip, Status, BestellingId)
+        VALUES (@RondNr, @Tijdstip, @Status, @BestellingId);
+        SELECT CAST(SCOPE_IDENTITY() as int);";
+
+            nieuweRonde.Id = await conn.ExecuteScalarAsync<int>(sqlInsertRonde, nieuweRonde);
+
+            return nieuweRonde;
+        }
 
         public async Task VoegOrderRegelToeAsync(OrderRegel regel)
         {
@@ -546,7 +588,19 @@ ORDER BY o.Id, oa.Id;
             conn.Open();
             using var tx = conn.BeginTransaction();
 
-            // 1. Insert OrderRegel
+            // 1. Controleer of RondeId bestaat in de Ronde tabel
+            var rondeExists = await conn.ExecuteScalarAsync<bool>(
+                "SELECT COUNT(1) FROM Ronde WHERE Id = @RondeId",
+                new { RondeId = regel.RondeId },
+                transaction: tx
+            );
+
+            if (!rondeExists)
+            {
+                throw new InvalidOperationException("De opgegeven RondeId bestaat niet in de Ronde tabel.");
+            }
+
+            // 2. Insert OrderRegel
             regel.Id = await conn.ExecuteScalarAsync<int>(
                 @"INSERT INTO OrderRegel (ProductId, Aantal, AantalBetaald, RondeId)
           VALUES (@ProductId, @Aantal, @AantalBetaald, @RondeId);
@@ -555,7 +609,7 @@ ORDER BY o.Id, oa.Id;
                 transaction: tx
             );
 
-            // 2. Insert AddOns
+            // 3. Insert AddOns
             foreach (var addon in regel.AddOns)
             {
                 await conn.ExecuteAsync(
@@ -564,7 +618,7 @@ ORDER BY o.Id, oa.Id;
                     new
                     {
                         OrderRegelId = regel.Id,
-                        ProductAddOnId = addon.ProductAddOn.Id // of AddOnId afhankelijk van hoe het opgehaald wordt
+                        ProductAddOnId = addon.ProductAddOn.Id
                     },
                     transaction: tx
                 );
@@ -572,6 +626,7 @@ ORDER BY o.Id, oa.Id;
 
             tx.Commit();
         }
+
 
         public Bestelling? HaalVolledigeBestelling(int bestellingId)
         {

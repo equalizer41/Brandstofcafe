@@ -32,11 +32,29 @@
 
         Nav.NavigateTo($"/Bestellen");
     }
-
-    private void NieuweRonde()
+    private async Task NieuweRonde()
     {
+        // Controleer of er een actieve bestelling is
+        if (BestelState.ActieveBestelling == null)
+            return;
 
+        // Voeg een nieuwe ronde toe via de repository
+        var nieuweRonde = await BestellingRepo.VoegNieuweRondeToeAsync(BestelState.ActieveBestelling.Id);
+
+        // Voeg de nieuwe ronde toe aan de BestelState
+        BestelState.StartNieuweRonde(nieuweRonde);
+
+        // Zet de actieve bestelling en ronde
+        BestelState.StartNieuweBestellingMetRonde(BestelState.ActieveBestelling, nieuweRonde);
+
+        // Navigeer naar de nieuwe ronde
+        Nav.NavigateTo($"/Bestellen");
     }
+
+
+
+
+    
 
     private async Task HerhaalLaatsteRonde()
     {

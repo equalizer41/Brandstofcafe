@@ -32,9 +32,14 @@
                 var product = AlleProducten.FirstOrDefault(p => p.Id == regel.ProductId);
                 <tr>
                     <td>@product?.Naam</td>
-                    <td>@regel.Aantal</td>
+                    <td>
+                        <!-- Knoppen om het aantal te verhogen of te verlagen -->
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerhoogAantal(regel)">+</button>
+                        @regel.Aantal
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerlaagAantal(regel)">-</button>
+                    </td>
                     <td>@product?.Prijs.ToString("C")</td>
-                    <td>@(regel.Aantal* product?.Prijs ?? 0).ToString("C")</td>
+                    <td>€@(regel.Aantal* product?.Prijs ?? 0)</td>
                     <td>
                         <button class="btn btn-sm btn-danger" @onclick="() => VerwijderRegel(regel)">🗑</button>
                     </td>
@@ -45,20 +50,22 @@
                         <td class="ps-4">↳ @addon.ProductAddOn?.AddOn?.Naam</td>
                         <td>@regel.Aantal</td>
                         <td>@addon.ProductAddOn?.Prijs.ToString("C")</td>
-                        <td>@(regel.Aantal* addon.ProductAddOn?.Prijs ?? 0).ToString("C")</td>
+                        <td>€@(regel.Aantal* addon.ProductAddOn?.Prijs ?? 0)</td>
                         <td></td>
                     </tr>
                 }
             }
         </tbody>
     </table>
+
 }
 else
 {
     <p class="text-muted">Nog geen producten toegevoegd aan deze ronde.</p>
 }
 
-<hr />@if (Top5.Any())
+<hr />
+@if (string.IsNullOrWhiteSpace(zoekterm) && Top5.Any())
 {
     <div class="mb-5">
         <h5 class="mb-3">Top 5 Meest Besteld:</h5>
@@ -113,6 +120,7 @@ else
 
 @foreach (var hoofdcategorie in AlleCategorieen)
 {
+
     <h4>@hoofdcategorie.Naam</h4>
 
     @foreach (var subcategorie in hoofdcategorie.SubCategorieen)
@@ -143,8 +151,12 @@ else
                                                @onchange="e => SetAddOnState(product.Id, optie.Id, (bool)e.Value!)" />
                                         <label class="form-check-label">@optie.Naam</label>
                                     </div>
+                            
                                 }
+
+                               
                             }
+
 
                             <button class="btn btn-sm btn-primary mt-3" @onclick="() => VoegProductToe(product)">Toevoegen</button>
 
@@ -173,10 +185,22 @@ else
 
     protected override void OnInitialized()
     {
-        AlleProducten = ProductRepo.GetAllInclusiefGeldigeAddOns();
+        AlleProducten = ProductRepo.GetAll();
         AlleCategorieen = CategorieRepo.GetCategorieBoom();
         Top5 = ProductRepo.GetTopBesteld();
 
+        Console.WriteLine($"Categorieën gevonden: {AlleCategorieen.Count}");
+        foreach (var c in AlleCategorieen)
+            Console.WriteLine($"Hoofdcategorie: {c.Naam}, Subcategorieën: {c.SubCategorieen?.Count}");
+
+        StateHasChanged();
+    }
+
+
+
+    private void ZoekProducten()
+    {
+        AlleProducten = ProductRepo.ZoekProducten(zoekterm);
     }
 
 
@@ -190,38 +214,99 @@ else
         GeselecteerdeAddOns[(productId, addOnId)] = value;
     }
 
-    private async Task VoegProductToe(Product product)
+    private void VerhoogAantal(OrderRegel regel)
     {
-        BestelState.SelecteerProduct(product);
-
-        foreach (var ((prodId, addOnId), geselecteerd) in GeselecteerdeAddOns)
-        {
-            if (prodId == product.Id && geselecteerd)
-            {
-                var pa = product.AddOns.FirstOrDefault(p => p.AddOnId == addOnId);
-                if (pa != null)
-                    BestelState.SelecteerAddOn(pa);
-            }
-        }
-
-        await BestelState.BevestigEnBewaarProductAsync(BestellingRepo, 1);
-
-        foreach (var key in GeselecteerdeAddOns.Keys.Where(k => k.productId == product.Id).ToList())
-        {
-            GeselecteerdeAddOns.Remove(key);
-        }
+        regel.Aantal++;  // Verhoog het aantal lokaal
+        BestelState.UpdateAantalOrderRegel(regel, regel.Aantal);  // Update het aantal in BestellingStateService
 
         StateHasChanged();
     }
+    private void VerlaagAantal(OrderRegel regel)
+    {
+        if (regel.Aantal > 1)  // Zorg ervoor dat het aantal niet negatief wordt
+        {
+            regel.Aantal--;  // Verlaag het aantal lokaal
+            BestelState.UpdateAantalOrderRegel(regel, regel.Aantal);  // Update het aantal in BestellingStateService
+        }
+
+        StateHasChanged();  
+    }
+    private void VoegProductToe(Product product)
+    {
+        BestelState.SelecteerProduct(product);
+
+        // Filter the selected add-ons for this product
+        var selectedAddOns = GeselecteerdeAddOns
+            .Where(x => x.Key.productId == product.Id && x.Value)
+            .Select(x => new OrderRegelAddOn
+            {
+                ProductAddOn = product.AddOns.FirstOrDefault(p => p.AddOnId == x.Key.addOnId)
+            }).ToList();
+
+        // Create a unique combination key for the product and its add-ons
+        var regel = BestelState.OrderRegelsInOpbouw.FirstOrDefault(r =>
+            r.ProductId == product.Id &&
+            r.AddOns.SequenceEqual(selectedAddOns));
+
+        if (regel != null)
+        {
+            // If the combination exists, increase the quantity
+            regel.Aantal++;
+        }
+        else
+        {
+            // Otherwise, create a new order line for the product with the add-ons
+            regel = new OrderRegel
+            {
+                ProductId = product.Id,
+                RondeId = BestelState.ActieveRonde?.Id ?? 0, // Use the active round id
+                Aantal = 1, // Start with 1
+                AantalBetaald = 0,
+                AddOns = selectedAddOns
+            };
+
+            BestelState.OrderRegelsInOpbouw.Add(regel); // Add the new order line
+        }
+
+        // Update the quantity in BestellingStateService
+        BestelState.UpdateAantalOrderRegel(regel, regel.Aantal);
+
+        StateHasChanged(); // Ensure the UI is updated
+    }
+
+
+
+
 
     private void VerwijderRegel(OrderRegel regel)
     {
         BestelState.OrderRegelsInOpbouw.Remove(regel);
     }
 
-    private void Afronden()
+    private async Task Afronden()
     {
+        // Haal de actieve bestelling op
+        var bestelling = BestelState.ActieveBestelling;
+        if (bestelling == null || BestelState.OrderRegelsInOpbouw.Count == 0)
+        {
+            // Geen bestelling of geen producten in de bestelling
+            return;
+        }
+
+        // Voeg alle in-memory orderregels toe aan de bestelling in de database
+        foreach (var regel in BestelState.OrderRegelsInOpbouw)
+        {
+            await BestellingRepo.VoegOrderRegelToeAsync(regel);
+        }
+
+        // Bevestig de bestelling
+        BestelState.OrderRegelsInOpbouw.Clear();  // Maak de in-memory lijst van orderregels leeg
+
+        // Reset de actieve bestelling en ronde
         BestelState.Reset();
+
+        // Navigeer naar de gewenste pagina (bijvoorbeeld naar een overzicht van de bestellingen)
         Nav.NavigateTo("/");
     }
+
 }
