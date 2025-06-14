@@ -44,7 +44,6 @@ public class BestellingStateService
 
     // Bestelling en Ronde
 
-
     public void StartNieuweRonde(Ronde nieuweRonde)
     {
         ActieveRonde = nieuweRonde;
@@ -137,80 +136,135 @@ public class BestellingStateService
         GeselecteerdProduct = null;
         GeselecteerdeAddOns.Clear();
 
-        NotifyStateChanged();  // Zorg ervoor dat de UI wordt bijgewerkt
+        NotifyStateChanged();  
     }
-
-
-
 
 
     // Betalingsbeheer
     public void SelecteerAlleProducten()
     {
-        foreach (var item in RekeningItems.Where(i => i.NogTeBetalen > 0))
+        // Doorloop alle RekeningItems
+        foreach (var item in RekeningItems)
         {
-            item.SelectieAantal = item.Aantal - item.AantalBetaald;
-
-            foreach (var addon in RekeningItems
-                .Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId))
+            // Controleer of het item nog te betalen is
+            if (item.NogTeBetalen > 0)
             {
-                addon.SelectieAantal = item.SelectieAantal;
+                // Stel de selectie voor dit item in
+                item.SelectieAantal = item.Aantal - item.AantalBetaald;
+
+                // Doorloop de RekeningItems opnieuw om de add-ons van het huidige item te selecteren
+                foreach (var addon in RekeningItems)
+                {
+                    if (addon.IsAddOn && addon.HoofdregelId == item.OrderRegelId)
+                    {
+                        // Stel de selectie voor de add-ons in
+                        addon.SelectieAantal = item.SelectieAantal;
+                    }
+                }
             }
         }
 
         NotifyStateChanged();
     }
 
+
     public List<(string ProductNaam, int TotaalAantal, List<string> AddOnNamen)> GroepeerSelectiesVoorOverzicht()
     {
-        return RekeningItems
-            .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
-            .Select(i => new
+        //  een lijst om het resultaat op te slaan
+        List<(string ProductNaam, int TotaalAantal, List<string> AddOnNamen)> resultaat = new List<(string ProductNaam, int TotaalAantal, List<string> AddOnNamen)>();
+
+        // Eerst filteren van de RekeningItems
+        List<RekeningItem> gefilterdeItems = new List<RekeningItem>();
+        foreach (var item in RekeningItems)
+        {
+            if (!item.IsAddOn && item.SelectieAantal > 0)
             {
-                i.ProductNaam,
-                i.SelectieAantal,
-                AddOnNamen = RekeningItems
-                    .Where(a => a.IsAddOn && a.HoofdregelId == i.OrderRegelId)
-                    .Select(a => a.ProductNaam)
-                    .ToList()
-            })
-            .GroupBy(x => x.ProductNaam)
-            .Select(g => (
-                ProductNaam: g.Key,
-                TotaalAantal: g.Sum(x => x.SelectieAantal),
-                AddOnNamen: g.SelectMany(x => x.AddOnNamen.Select(a => $"{x.SelectieAantal} x {a}")).ToList()
-            ))
-            .ToList();
+                gefilterdeItems.Add(item);
+            }
+        }
+
+        // Groeperen op ProductNaam
+        Dictionary<string, List<RekeningItem>> gegroepeerdOpProductNaam = new Dictionary<string, List<RekeningItem>>();
+        foreach (var item in gefilterdeItems)
+        {
+            if (!gegroepeerdOpProductNaam.ContainsKey(item.ProductNaam))
+            {
+                gegroepeerdOpProductNaam[item.ProductNaam] = new List<RekeningItem>();
+            }
+            gegroepeerdOpProductNaam[item.ProductNaam].Add(item);
+        }
+
+        // Voor elke groep het totaal aantal en de add-ons verzamelen
+        foreach (var groep in gegroepeerdOpProductNaam)
+        {
+            string productNaam = groep.Key;
+            int totaalAantal = 0;
+            List<string> addOnNamen = new List<string>();
+
+            // Bereken het totaal aantal voor dit product
+            foreach (var item in groep.Value)
+            {
+                totaalAantal += item.SelectieAantal;
+
+                // Zoek add-ons die bij dit product horen
+                foreach (var addOn in RekeningItems)
+                {
+                    if (addOn.IsAddOn && addOn.HoofdregelId == item.OrderRegelId)
+                    {
+                        addOnNamen.Add($"{item.SelectieAantal} x {addOn.ProductNaam}");
+                    }
+                }
+            }
+
+            // Voeg de gegevens toe aan de resultaatlijst
+            resultaat.Add((ProductNaam: productNaam, TotaalAantal: totaalAantal, AddOnNamen: addOnNamen));
+        }
+
+        return resultaat;
     }
+
 
 
     public async Task BetaalGeselecteerdeAsync(BestellingRepository repo)
     {
-        var wijzigingen = RekeningItems
-            .Where(i => i.SelectieAantal > 0)
-            .ToDictionary(i => i.OrderRegelId, i => i.SelectieAantal);
+        // Maak een lege dictionary om de wijzigingen op te slaan
+        Dictionary<int, int> wijzigingen = new Dictionary<int, int>();
 
-        if (wijzigingen.Any() && GeselecteerdeTafel != null)
+        // Doorloop RekeningItems en voeg de geselecteerde items toe aan de dictionary
+        foreach (var item in RekeningItems)
         {
+            if (item.SelectieAantal > 0)
+            {
+                wijzigingen.Add(item.OrderRegelId, item.SelectieAantal);
+            }
+        }
+
+        // Controleer of er wijzigingen zijn en of er een geselecteerde tafel is
+        if (wijzigingen.Count > 0 && GeselecteerdeTafel != null)
+        {
+            // Werk het aantal betaalde items bij in de repository
             await repo.UpdateAantalBetaaldAsync(wijzigingen);
+
+            // Haal de bijgewerkte rekeningitems voor de geselecteerde tafel op
             RekeningItems = repo.HaalRekeningItemsStructuur(GeselecteerdeTafel.Id);
 
-            // Hier: reset selectievelden
+            // Reset de selectievelden voor elk item
             foreach (var item in RekeningItems)
             {
                 item.SelectieAantal = 0;
             }
 
-            // Actieve bestelling updaten indien nodig
+            // Update de actieve bestelling als die bestaat
             if (ActieveBestelling != null)
             {
                 ActieveBestelling = await repo.HaalBestellingAsync(ActieveBestelling.Id);
             }
 
+          
             NotifyStateChanged();
         }
-
     }
+
 
     public void UpdateSelectieAantal(RekeningItem hoofdregel, int nieuwAantal)
     {
@@ -227,36 +281,37 @@ public class BestellingStateService
 
     public decimal BerekenGeselecteerdTotaal()
     {
+        decimal totaal = 0;
 
-        return RekeningItems
-            .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
-            .Sum(item =>
-                item.SelectieAantal * item.TotaalPrijsInclusiefAddOns(RekeningItems)
-            );
+        // Doorloop RekeningItems en bereken het totaal voor geselecteerde items
+        foreach (var item in RekeningItems)
+        {
+            if (!item.IsAddOn && item.SelectieAantal > 0)
+            {
+                totaal += item.SelectieAantal * item.TotaalPrijsInclusiefAddOns(RekeningItems);
+            }
+        }
 
-    }
-
-    public List<(RekeningItem Hoofdregel, List<RekeningItem> AddOns)> HaalGeselecteerdeProductenMetAddOns()
-    {
-        return RekeningItems
-            .Where(i => !i.IsAddOn && i.SelectieAantal > 0)
-            .Select(item => (
-                item,
-                RekeningItems
-                    .Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId)
-                    .ToList()
-            ))
-            .ToList();
+        return totaal;
     }
 
     public decimal BerekenTotaalNogTeBetalen()
     {
-        return RekeningItems
-            .Where(i => !i.IsAddOn)
-            .Sum(i =>
-                (i.Aantal - i.AantalBetaald) * i.TotaalPrijsInclusiefAddOns(RekeningItems)
-            );
+        decimal totaal = 0;
+
+        // Doorloop RekeningItems en bereken het totaal voor nog te betalen items
+        foreach (var item in RekeningItems)
+        {
+            if (!item.IsAddOn)
+            {
+                decimal resterendAantal = item.Aantal - item.AantalBetaald;
+                totaal += resterendAantal * item.TotaalPrijsInclusiefAddOns(RekeningItems);
+            }
+        }
+
+        return totaal;
     }
+
 
     public void StartNieuweBestellingMetRonde(Bestelling bestelling, Ronde ronde)
     {

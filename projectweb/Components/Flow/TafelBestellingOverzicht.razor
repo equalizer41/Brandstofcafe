@@ -130,7 +130,6 @@ else
         }
 
         Bestellingen = BestellingRepo.OpenBestellingBijTafelID(tafel.Id);
-        Console.WriteLine($"[DEBUG] Bestellingen geladen: {Bestellingen.Count}");
     }
 
     private void SelecteerBestelling(Bestelling b)
@@ -139,8 +138,7 @@ else
         var laatsteRonde = b.Rondes.MaxBy(r => r.RondNr);
         BestelState.StartNieuweBestellingMetRonde(b, laatsteRonde);
 
-
-        StateHasChanged(); // Zorgt ervoor dat UI zich meteen aanpast
+        StateHasChanged();
     }
     private void HerlaadBestellingen()
     {

@@ -33,7 +33,6 @@
                 <tr>
                     <td>@product?.Naam</td>
                     <td>
-                        <!-- Knoppen om het aantal te verhogen of te verlagen -->
                         <button class="btn btn-sm btn-outline-primary" @onclick="() => VerhoogAantal(regel)">+</button>
                         @regel.Aantal
                         <button class="btn btn-sm btn-outline-primary" @onclick="() => VerlaagAantal(regel)">-</button>
@@ -233,48 +232,87 @@ else
     }
     private void VoegProductToe(Product product)
     {
+        // Selecteer het product in de bestelstatus
         BestelState.SelecteerProduct(product);
 
-        // Filter the selected add-ons for this product
-        var selectedAddOns = GeselecteerdeAddOns
-            .Where(x => x.Key.productId == product.Id && x.Value)
-            .Select(x => new OrderRegelAddOn
-            {
-                ProductAddOn = product.AddOns.FirstOrDefault(p => p.AddOnId == x.Key.addOnId)
-            }).ToList();
+        // Maak een lijst voor geselecteerde add-ons
+        List<OrderRegelAddOn> geselecteerdeAddOns = new List<OrderRegelAddOn>();
 
-        // Create a unique combination key for the product and its add-ons
-        var regel = BestelState.OrderRegelsInOpbouw.FirstOrDefault(r =>
-            r.ProductId == product.Id &&
-            r.AddOns.SequenceEqual(selectedAddOns));
-
-        if (regel != null)
+        // Voeg geselecteerde add-ons toe aan de lijst
+        foreach (var addOn in GeselecteerdeAddOns)
         {
-            // If the combination exists, increase the quantity
-            regel.Aantal++;
+            if (addOn.Key.productId == product.Id && addOn.Value)
+            {
+                ProductAddOn addOnProduct = null;
+
+                // Zoek de juiste add-on in het product zonder LINQ
+                foreach (var addOnItem in product.AddOns)
+                {
+                    if (addOnItem.AddOnId == addOn.Key.addOnId)
+                    {
+                        addOnProduct = addOnItem;
+                        break;
+                    }
+                }
+
+                if (addOnProduct != null)
+                {
+                    geselecteerdeAddOns.Add(new OrderRegelAddOn { ProductAddOn = addOnProduct });
+                }
+            }
+        }
+
+        // Zoek een bestaande orderregel
+        OrderRegel bestaandeRegel = null;
+
+        foreach (var orderRegel in BestelState.OrderRegelsInOpbouw)
+        {
+            bool addOnsZijnGelijk = true;
+
+            if (orderRegel.ProductId == product.Id && orderRegel.AddOns.Count == geselecteerdeAddOns.Count)
+            {
+                for (int i = 0; i < orderRegel.AddOns.Count; i++)
+                {
+                    if (orderRegel.AddOns[i].ProductAddOn.AddOnId != geselecteerdeAddOns[i].ProductAddOn.AddOnId)
+                    {
+                        addOnsZijnGelijk = false;
+                        break;
+                    }
+                }
+
+                if (addOnsZijnGelijk)
+                {
+                    bestaandeRegel = orderRegel;
+                    break;
+                }
+            }
+        }
+
+        if (bestaandeRegel != null)
+        {
+            // Verhoog het aantal van de bestaande regel
+            bestaandeRegel.Aantal++;
         }
         else
         {
-            // Otherwise, create a new order line for the product with the add-ons
-            regel = new OrderRegel
+            // Maak een nieuwe orderregel aan
+            bestaandeRegel = new OrderRegel
             {
                 ProductId = product.Id,
-                RondeId = BestelState.ActieveRonde?.Id ?? 0, // Use the active round id
-                Aantal = 1, // Start with 1
+                RondeId = BestelState.ActieveRonde?.Id ?? 0, // Gebruik de actieve ronde-id
+                Aantal = 1,
                 AantalBetaald = 0,
-                AddOns = selectedAddOns
+                AddOns = geselecteerdeAddOns
             };
 
-            BestelState.OrderRegelsInOpbouw.Add(regel); // Add the new order line
+            BestelState.OrderRegelsInOpbouw.Add(bestaandeRegel); // Voeg de nieuwe orderregel toe
         }
 
-        // Update the quantity in BestellingStateService
-        BestelState.UpdateAantalOrderRegel(regel, regel.Aantal);
+        // Werk het aantal bij in de bestelstatus
+        BestelState.UpdateAantalOrderRegel(bestaandeRegel, bestaandeRegel.Aantal);
 
-        StateHasChanged(); // Ensure the UI is updated
+        StateHasChanged();
     }
-
-
 
 
 

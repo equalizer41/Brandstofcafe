@@ -20,17 +20,18 @@ namespace projectweb.Repositories
         {
             using var conn = dbConnectionProvider.GetDatabaseConnection();
 
-            // Stap 1: haal vlakke lijst op uit de database
+            // Haal de lijst van alle categorieën op uit de database
             var lijst = conn.Query<Categorie>("SELECT Id, Naam, OuderCategorieId FROM Categorie").ToList();
 
-            // Stap 2: zet alles in een dictionary
+            // Zet alles in een dictionary voor gemakkelijke toegang
             var dict = lijst.ToDictionary(c => c.Id);
 
-            // Stap 3: koppel de subcategorieën
+            // Koppel de subcategorieën aan hun oudercategorieën
             foreach (var cat in lijst)
             {
                 cat.SubCategorieen = new List<Categorie>();
 
+                // Koppel de categorieën met hun oudercategorieën
                 if (cat.OuderCategorieId != null && dict.TryGetValue(cat.OuderCategorieId.Value, out var ouder))
                 {
                     ouder.SubCategorieen.Add(cat);
@@ -38,9 +39,20 @@ namespace projectweb.Repositories
                 }
             }
 
-            // Stap 4: return topniveau (dus waar geen OuderCategorieId is)
-            return lijst.Where(c => c.OuderCategorieId == null).ToList();
+            // Verzamel de topniveau categorieën (waar OuderCategorieId null is)
+            var topNiveauCategorieen = new List<Categorie>();
+            foreach (var cat in lijst)
+            {
+                if (cat.OuderCategorieId == null)
+                {
+                    topNiveauCategorieen.Add(cat);
+                }
+            }
+
+            // Retourneer alleen de topniveau categorieën
+            return topNiveauCategorieen;
         }
+
 
 
 

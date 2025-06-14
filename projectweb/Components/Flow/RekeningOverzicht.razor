@@ -52,7 +52,6 @@ else
                                 <td>@item.Subtotaal.ToString("C")</td>
                             </tr>
 
-                            // Toon AddOns onder deze regel
                             var addons = groep.Where(a => a.IsAddOn && a.HoofdregelId == item.OrderRegelId);
                             foreach (var addon in addons)
                             {

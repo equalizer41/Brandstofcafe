@@ -13,76 +13,66 @@ namespace projectweb.Repositories
         {
             this.dbConnectionProvider = dbConnectionProvider;
         }
-        public List<Bestelling> GetAll()
-        {
-            using var connection = dbConnectionProvider.GetDatabaseConnection();
-            return connection.Query<Bestelling>("SELECT * FROM Bestelling").ToList();
-        }
-        public Bestelling? GetById(int id)
-        {
-            using var connection = dbConnectionProvider.GetDatabaseConnection();
-            return connection.QueryFirstOrDefault<Bestelling>(
-                "SELECT * FROM Bestelling WHERE Id = @Id", new { Id = id });
-        }
+
 
         public List<Bestelling> OpenBestellingBijTafelID(int tafelId)
         {
             using var connection = dbConnectionProvider.GetDatabaseConnection();
 
             var sql = @"
-SELECT 
-    b.Id,
-    b.TafelId,
-    b.IsBetaald,
+                SELECT 
+                    b.Id,
+                    b.TafelId,
+                    b.IsBetaald,
 
-    r.Id,
-    r.RondNr,
-    r.Tijdstip,
-    r.Status,
-    r.BestellingId,
+                    r.Id,
+                    r.RondNr,
+                    r.Tijdstip,
+                    r.Status,
+                    r.BestellingId,
 
-    o.Id,
-    o.Aantal,
-    o.AantalBetaald,
-    o.ProductId,
-    o.RondeId,
+                    o.Id,
+                    o.Aantal,
+                    o.AantalBetaald,
+                    o.ProductId,
+                    o.RondeId,
     
-    p.Id,
-    p.Naam,
-    p.Prijs,
+                    p.Id,
+                    p.Naam,
+                    p.Prijs,
 
 
-    oa.Id,
-    oa.OrderRegelId,
-    oa.ProductAddOnId,
+                    oa.Id,
+                    oa.OrderRegelId,
+                    oa.ProductAddOnId,
 
-    pa.Id,
-    pa.ProductId,
-    pa.AddOnId,
-    pa.Prijs,
+                    pa.Id,
+                    pa.ProductId,
+                    pa.AddOnId,
+                    pa.Prijs,
 
-    a.Id,
-    a.Naam,
-    a.AddOnCategorieId
+                    a.Id,
+                    a.Naam,
+                    a.AddOnCategorieId
 
-FROM Bestelling b
-JOIN Ronde r             ON r.BestellingId = b.Id
-JOIN OrderRegel o        ON o.RondeId = r.Id
-JOIN Product p           ON p.Id = o.ProductId  
-LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
-LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
-LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
+                FROM Bestelling b
+                JOIN Ronde r             ON r.BestellingId = b.Id
+                JOIN OrderRegel o        ON o.RondeId = r.Id
+                JOIN Product p           ON p.Id = o.ProductId  
+                LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
+                LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
+                LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
 
-WHERE b.TafelId = @TafelId
-  AND b.Id = (
-      SELECT MAX(Id)
-      FROM Bestelling
-      WHERE TafelId = @TafelId
-        AND IsBetaald = 0
+                WHERE b.TafelId = @TafelId
+                  AND b.Id = (
+                      SELECT MAX(Id)
+                      FROM Bestelling
+                      WHERE TafelId = @TafelId
+                        AND IsBetaald = 0
 
-  )
-ORDER BY b.Id, r.Id, o.Id, oa.Id;
-";
+                  )
+                ORDER BY b.Id, r.Id, o.Id, oa.Id;
+                ";
 
             var bestellingenCache = new Dictionary<int, Bestelling>();
 
@@ -139,53 +129,53 @@ ORDER BY b.Id, r.Id, o.Id, oa.Id;
             using var connection = dbConnectionProvider.GetDatabaseConnection();
 
             var sql = @"
-SELECT 
-    b.Id,
-    b.TafelId,
-    b.IsBetaald,
+                SELECT 
+                    b.Id,
+                    b.TafelId,
+                    b.IsBetaald,
 
-    r.Id,
-    r.RondNr,
-    r.Tijdstip,
-    r.Status,
-    r.BestellingId,
+                    r.Id,
+                    r.RondNr,
+                    r.Tijdstip,
+                    r.Status,
+                    r.BestellingId,
 
-    o.Id,
-    o.Aantal,
-    o.AantalBetaald,
-    o.ProductId,
-    o.RondeId,
+                    o.Id,
+                    o.Aantal,
+                    o.AantalBetaald,
+                    o.ProductId,
+                    o.RondeId,
     
-    p.Id,
-    p.Naam,
-    p.Prijs,
+                    p.Id,
+                    p.Naam,
+                    p.Prijs,
 
 
-    oa.Id,
-    oa.OrderRegelId,
-    oa.ProductAddOnId,
+                    oa.Id,
+                    oa.OrderRegelId,
+                    oa.ProductAddOnId,
 
-    pa.Id,
-    pa.ProductId,
-    pa.AddOnId,
-    pa.Prijs,
+                    pa.Id,
+                    pa.ProductId,
+                    pa.AddOnId,
+                    pa.Prijs,
 
-    a.Id,
-    a.Naam,
-    a.AddOnCategorieId
+                    a.Id,
+                    a.Naam,
+                    a.AddOnCategorieId
 
-FROM Bestelling b
-JOIN Ronde r             ON r.BestellingId = b.Id
-JOIN OrderRegel o        ON o.RondeId = r.Id
-JOIN Product p           ON p.Id = o.ProductId  
-LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
-LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
-LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
+                FROM Bestelling b
+                JOIN Ronde r             ON r.BestellingId = b.Id
+                JOIN OrderRegel o        ON o.RondeId = r.Id
+                JOIN Product p           ON p.Id = o.ProductId  
+                LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
+                LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
+                LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
 
-WHERE b.TafelId = @TafelId
+                WHERE b.TafelId = @TafelId
 
-ORDER BY b.Id, r.Id, o.Id, oa.Id;
-";
+                ORDER BY b.Id, r.Id, o.Id, oa.Id;
+                ";
 
             var bestellingenCache = new Dictionary<int, Bestelling>();
 
@@ -244,29 +234,29 @@ ORDER BY b.Id, r.Id, o.Id, oa.Id;
 
 
             var sql = @"
-SELECT 
-    r.Id, r.RondNr, r.Tijdstip, r.Status, r.BestellingId,
+                SELECT 
+                    r.Id, r.RondNr, r.Tijdstip, r.Status, r.BestellingId,
 
-    o.Id, o.Aantal, o.AantalBetaald, o.ProductId, o.RondeId,
+                    o.Id, o.Aantal, o.AantalBetaald, o.ProductId, o.RondeId,
 
-    p.Id, p.Naam, p.Prijs,
+                    p.Id, p.Naam, p.Prijs,
 
-    oa.Id, oa.OrderRegelId, oa.ProductAddOnId,
+                    oa.Id, oa.OrderRegelId, oa.ProductAddOnId,
 
-    pa.Id, pa.ProductId, pa.AddOnId, pa.Prijs,
+                    pa.Id, pa.ProductId, pa.AddOnId, pa.Prijs,
 
-    a.Id, a.Naam, a.AddOnCategorieId
+                    a.Id, a.Naam, a.AddOnCategorieId
 
-FROM Ronde r
-JOIN OrderRegel o        ON o.RondeId = r.Id
-JOIN Product p           ON p.Id = o.ProductId
-LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
-LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
-LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
+                FROM Ronde r
+                JOIN OrderRegel o        ON o.RondeId = r.Id
+                JOIN Product p           ON p.Id = o.ProductId
+                LEFT JOIN OrderRegelAddOn oa ON oa.OrderRegelId = o.Id
+                LEFT JOIN ProductAddOn pa    ON pa.Id = oa.ProductAddOnId
+                LEFT JOIN AddOn a           ON a.Id = pa.AddOnId
 
-WHERE r.Id = @RondeId
-ORDER BY o.Id, oa.Id;
-";
+                WHERE r.Id = @RondeId
+                ORDER BY o.Id, oa.Id;
+                ";
 
             var rondeCache = new Dictionary<int, Ronde>();
 
@@ -312,7 +302,7 @@ ORDER BY o.Id, oa.Id;
             var origineleRonde = rondeCache.Values.FirstOrDefault();
          
 
-            // STAP 2: Maak nieuwe ronde op basis van origineel
+            // Maak nieuwe ronde op basis van origineel
             var nieuweRonde = new Ronde
             {
                 RondNr = origineleRonde.RondNr + 1,
@@ -330,7 +320,7 @@ ORDER BY o.Id, oa.Id;
                 }).ToList()
             };
 
-            // STAP 3: Sla nieuwe ronde + regels + addons op in DB
+            // Sla nieuwe ronde + regels + addons op in DB
             using var transaction = connection.BeginTransaction();
 
             // Insert ronde
@@ -460,7 +450,7 @@ ORDER BY o.Id, oa.Id;
         {
             using var conn = dbConnectionProvider.GetDatabaseConnection();
             conn.Open();
-            using var trans = conn.BeginTransaction();
+            using var transaction = conn.BeginTransaction();
 
             var bestelling = new Bestelling
             {
@@ -474,7 +464,7 @@ ORDER BY o.Id, oa.Id;
                 @"INSERT INTO Bestelling (TafelId, Tijdstip, OberID, IsBetaald) 
           VALUES (@TafelId, @Tijdstip, @OberID, 0);
           SELECT CAST(SCOPE_IDENTITY() as int);",
-                bestelling, trans);
+                bestelling, transaction);
 
             var ronde = new Ronde
             {
@@ -489,11 +479,11 @@ ORDER BY o.Id, oa.Id;
                 @"INSERT INTO Ronde (BestellingId, Tijdstip, Status, RondNr)
           VALUES (@BestellingId, @Tijdstip, @Status, @RondNr);
           SELECT CAST(SCOPE_IDENTITY() as int);",
-                ronde, trans);
+                ronde, transaction);
 
             bestelling.Rondes.Add(ronde);
 
-            trans.Commit();
+            transaction.Commit();
             return bestelling;
         }
         public List<RekeningItem> HaalRekeningItemsStructuurVoorBestelling(int bestellingId)
@@ -585,31 +575,27 @@ ORDER BY o.Id, oa.Id;
         public async Task VoegOrderRegelToeAsync(OrderRegel regel)
         {
             using var conn = dbConnectionProvider.GetDatabaseConnection();
-            conn.Open();
-            using var tx = conn.BeginTransaction();
 
-            // 1. Controleer of RondeId bestaat in de Ronde tabel
-            var rondeExists = await conn.ExecuteScalarAsync<bool>(
+            // 1. Controleer of de opgegeven RondeId bestaat in de Ronde tabel
+            var rondeBestaat = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(1) FROM Ronde WHERE Id = @RondeId",
-                new { RondeId = regel.RondeId },
-                transaction: tx
+                new { RondeId = regel.RondeId }
             );
 
-            if (!rondeExists)
+            if (rondeBestaat == 0)
             {
                 throw new InvalidOperationException("De opgegeven RondeId bestaat niet in de Ronde tabel.");
             }
 
-            // 2. Insert OrderRegel
+            // 2. Voeg de OrderRegel toe aan de OrderRegel tabel
             regel.Id = await conn.ExecuteScalarAsync<int>(
                 @"INSERT INTO OrderRegel (ProductId, Aantal, AantalBetaald, RondeId)
           VALUES (@ProductId, @Aantal, @AantalBetaald, @RondeId);
           SELECT CAST(SCOPE_IDENTITY() as int);",
-                regel,
-                transaction: tx
+                regel
             );
 
-            // 3. Insert AddOns
+            // 3. Voeg de AddOns toe aan de OrderRegelAddOn tabel
             foreach (var addon in regel.AddOns)
             {
                 await conn.ExecuteAsync(
@@ -619,13 +605,11 @@ ORDER BY o.Id, oa.Id;
                     {
                         OrderRegelId = regel.Id,
                         ProductAddOnId = addon.ProductAddOn.Id
-                    },
-                    transaction: tx
+                    }
                 );
             }
-
-            tx.Commit();
         }
+
 
 
         public Bestelling? HaalVolledigeBestelling(int bestellingId)
