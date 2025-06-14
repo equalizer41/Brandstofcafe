@@ -63,9 +63,20 @@ public class BestellingStateService
     // In BestelStateService.cs
     public void SelecteerAddOn(ProductAddOn productAddOn)
     {
-        GeselecteerdeAddOns.Add(productAddOn);
-        NotifyStateChanged();
+        // Voeg alleen toe als het nog niet bestaat
+        if (!GeselecteerdeAddOns.Any(p => p.AddOnId == productAddOn.AddOnId))
+        {
+            // Zorg dat AddOn is gevuld!
+            if (productAddOn.AddOn == null)
+            {
+                // (optioneel) gooi hier een exception/logging of haal 'm opnieuw op
+            }
+
+            GeselecteerdeAddOns.Add(productAddOn);
+        }
     }
+
+
 
 
     public void VerwijderAddOn(AddOn addon)
@@ -74,7 +85,7 @@ public class BestellingStateService
         NotifyStateChanged();
     }
 
-    public async Task BevestigEnBewaarProductAsync(BestellingRepository repo)
+    public async Task BevestigEnBewaarProductAsync(BestellingRepository repo, int aantal)
     {
         if (GeselecteerdProduct is null || ActieveRonde is null)
             return;
@@ -83,9 +94,8 @@ public class BestellingStateService
         {
             ProductId = GeselecteerdProduct.Id,
             RondeId = ActieveRonde.Id,
-            Aantal = 1,
+            Aantal = aantal,
             AantalBetaald = 0,
-
             AddOns = GeselecteerdeAddOns.Select(pa => new OrderRegelAddOn
             {
                 ProductAddOn = pa
@@ -99,6 +109,7 @@ public class BestellingStateService
         GeselecteerdeAddOns.Clear();
         NotifyStateChanged();
     }
+
 
 
 

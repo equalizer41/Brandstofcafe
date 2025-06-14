@@ -8,15 +8,14 @@
 
 <h3 class="mb-4">Producten toevoegen aan ronde @BestelState.ActieveRonde?.RondNr</h3>
 
-@if (OrderRegels.Any())
-{
-    <div class="mt-4">
-        <button class="btn btn-success" @onclick="Afronden">Bestelling afronden</button>
-    </div>
-}
+<input class="form-control mb-4" placeholder="Zoek op product..." @bind="zoekterm" />
 
 @if (OrderRegels.Any())
 {
+    <div class="mb-4">
+        <button class="btn btn-success" @onclick="Afronden">Bestelling afronden</button>
+    </div>
+
     <table class="table table-bordered">
         <thead>
             <tr>
@@ -35,7 +34,7 @@
                     <td>@product?.Naam</td>
                     <td>@regel.Aantal</td>
                     <td>@product?.Prijs.ToString("C")</td>
-                    <td>@(regel.Aantal * product?.Prijs ?? 0)</td>
+                    <td>@(regel.Aantal* product?.Prijs ?? 0).ToString("C")</td>
                     <td>
                         <button class="btn btn-sm btn-danger" @onclick="() => VerwijderRegel(regel)">🗑</button>
                     </td>
@@ -59,25 +58,83 @@ else
     <p class="text-muted">Nog geen producten toegevoegd aan deze ronde.</p>
 }
 
-<hr />
-
-@foreach (var categorie in AlleCategorieen.Where(c => c.OuderCategorieId != null))
+<hr />@if (Top5.Any())
 {
-    <div class="mb-4">
-        <h5>@categorie.Naam</h5>
+    <div class="mb-5">
+        <h5 class="mb-3">Top 5 Meest Besteld:</h5>
         <div class="row">
-            @foreach (var product in AlleProducten.Where(p => p.CategorieId == categorie.Id))
+            @foreach (var topItem in Top5)
             {
-                <div class="col-md-4 mb-2">
-                    <div class="card h-100">
+                var product = AlleProducten.FirstOrDefault(p => p.Naam == topItem.Naam);
+                if (product == null)
+                    continue;
+
+                <div class="col-md-4 col-lg-3 mb-4">
+                    <div class="card h-100 shadow-sm border border-primary">
+                        <div class="card-body d-flex flex-column justify-content-between">
+                            <div>
+                                <h6 class="card-title">@product.Naam</h6>
+                                <p class="text-muted mb-2">€@product.Prijs</p>
+
+                                @if (product.AddOnCategorieen.Any())
+                                {
+                                    @foreach (var groep in product.AddOnCategorieen)
+                                    {
+                                        <label class="form-label d-block fw-bold small">@groep.AddOnCategorie.Naam</label>
+                                        <div class="mb-2">
+                                            @foreach (var optie in groep.AddOnCategorie.Opties)
+                                            {
+                                                <div class="form-check form-check-sm">
+                                                    <input type="checkbox"
+                                                           class="form-check-input"
+                                                           checked="@GetAddOnState(product.Id, optie.Id)"
+                                                           @onchange="e => SetAddOnState(product.Id, optie.Id, (bool)e.Value!)" />
+                                                    <label class="form-check-label small">@optie.Naam</label>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+
+                            <div class="mt-auto">
+                                <span class="badge bg-secondary text-light">@topItem.TotaalAantal x besteld</span>
+                                <button class="btn btn-sm btn-primary w-100 mt-2" @onclick="() => VoegProductToe(product)">
+                                    Toevoegen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@foreach (var hoofdcategorie in AlleCategorieen)
+{
+    <h4>@hoofdcategorie.Naam</h4>
+
+    @foreach (var subcategorie in hoofdcategorie.SubCategorieen)
+    {
+        <h5 class="mt-3">@subcategorie.Naam</h5>
+
+        <div class="row">
+            @foreach (var product in AlleProducten
+                .Where(p => p.CategorieId == subcategorie.Id &&
+                (string.IsNullOrWhiteSpace(zoekterm) || p.Naam.Contains(zoekterm, StringComparison.OrdinalIgnoreCase))))
+            {
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border @((product.AddOnCategorieen.Any()) ? "border-warning" : "")">
                         <div class="card-body">
                             <h6 class="card-title">@product.Naam</h6>
                             <p class="card-text">€@product.Prijs</p>
 
-                            @foreach (var pac in product.AddOnCategorieen)
+                            @foreach (var groep in product.AddOnCategorieen)
                             {
-                                <label class="form-label d-block">@pac.AddOnCategorie.Naam</label>
-                                @foreach (var optie in pac.AddOnCategorie.Opties)
+                                <label class="form-label d-block">@groep.AddOnCategorie.Naam</label>
+
+                                @foreach (var optie in groep.AddOnCategorie.Opties)
                                 {
                                     <div class="form-check mb-1">
                                         <input type="checkbox"
@@ -89,15 +146,18 @@ else
                                 }
                             }
 
-                            <button class="btn btn-sm btn-primary mt-2" @onclick="() => VoegProductToe(product)">
-                                Toevoegen
-                            </button>
+                            <button class="btn btn-sm btn-primary mt-3" @onclick="() => VoegProductToe(product)">Toevoegen</button>
+
+                            @if (product.AddOnCategorieen.Any())
+                            {
+                                <div class="mt-2 text-warning small">Let op: dit product heeft extra opties</div>
+                            }
                         </div>
                     </div>
                 </div>
             }
         </div>
-    </div>
+    }
 }
 
 
@@ -106,15 +166,19 @@ else
     private List<Product> AlleProducten = new();
     private List<Categorie> AlleCategorieen = new();
     private List<OrderRegel> OrderRegels => BestelState.OrderRegelsInOpbouw;
+    private List<(string Naam, int TotaalAantal)> Top5 = new();
+    private string zoekterm = "";
 
-    // Geselecteerde add-ons per product/addon combinatie
     private Dictionary<(int productId, int addOnId), bool> GeselecteerdeAddOns = new();
 
     protected override void OnInitialized()
     {
-        AlleProducten = ProductRepo.GetAll();
-        AlleCategorieen = CategorieRepo.GetAll();
+        AlleProducten = ProductRepo.GetAllInclusiefGeldigeAddOns();
+        AlleCategorieen = CategorieRepo.GetCategorieBoom();
+        Top5 = ProductRepo.GetTopBesteld();
+
     }
+
 
     private bool GetAddOnState(int productId, int addOnId)
     {
@@ -140,9 +204,8 @@ else
             }
         }
 
-        await BestelState.BevestigEnBewaarProductAsync(BestellingRepo);
+        await BestelState.BevestigEnBewaarProductAsync(BestellingRepo, 1);
 
-        // Wis geselecteerde add-ons van dit product
         foreach (var key in GeselecteerdeAddOns.Keys.Where(k => k.productId == product.Id).ToList())
         {
             GeselecteerdeAddOns.Remove(key);

@@ -7,6 +7,6 @@ public class Product
 
     public int CategorieId { get; set; }
     public required Categorie Categorie { get; set; }
-    public ICollection<ProductAddOnCategorie> AddOnCategorieen { get; set; } = new List<ProductAddOnCategorie>();
-    public required ICollection<ProductAddOn> AddOns { get; set; }
+    public List<ProductAddOn> AddOns { get; set; } = new();
+    public List<ProductAddOnCategorie> AddOnCategorieen { get; set; } = new();
 }
